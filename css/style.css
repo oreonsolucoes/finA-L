@@ -501,3 +501,26 @@ li span {
         opacity: 0;
     }
 }
+
+.avatar {
+    width: 85px;          /* Tamanho do círculo */
+    height: 85px;
+    border-radius: 50%;   /* Deixa redondo */
+    
+    /* Caminho da imagem - ajuste se a pasta for diferente */
+    background-image: url('../img/casal.jpg'); 
+    
+    background-size: cover;    /* Preenche todo o círculo sem esticar */
+    background-position: center; /* Centraliza o rosto na foto */
+    
+    border: 3px solid #ffffff; /* Borda branca para destacar no verde */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); /* Sombra para dar profundidade */
+    
+    display: inline-block;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.avatar:hover {
+    transform: scale(1.1); /* Efeito de zoom leve ao passar o mouse */
+}
