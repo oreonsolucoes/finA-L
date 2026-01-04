@@ -508,7 +508,7 @@ li span {
     border-radius: 50%;   /* Deixa redondo */
     
     /* Caminho da imagem - ajuste se a pasta for diferente */
-    background-image: url('../img/casal.jpg'); 
+    background-image: url('/img/casal.jpg'); 
     
     background-size: cover;    /* Preenche todo o círculo sem esticar */
     background-position: center; /* Centraliza o rosto na foto */
