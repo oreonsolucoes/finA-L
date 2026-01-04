@@ -1,0 +1,503 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+
+/* Estilização das listas de Ganhos e Despesas */
+#listaDespesas li,
+#listaGanhos li {
+    font-family: 'Poppins', sans-serif;
+    /* Fonte moderna e limpa */
+    background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
+    color: white;
+    font-size: 0.95rem;
+    letter-spacing: 0.3px;
+    /* Espaçamento leve entre letras */
+    padding: 14px 18px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 15px rgba(0, 176, 155, 0.2);
+    /* Sombra suave na cor do tema */
+    transition: transform 0.2s ease;
+}
+
+/* Efeito ao passar o mouse */
+#listaDespesas li:hover,
+#listaGanhos li:hover {
+    transform: scale(1.02);
+}
+
+/* Destaque para o Valor (o R$) */
+#listaDespesas li strong,
+#listaGanhos li strong {
+    font-weight: 600;
+    /* Mais negrito que o texto normal */
+    font-size: 1rem;
+    background: rgba(255, 255, 255, 0.15);
+    /* Fundo sutil atrás do valor */
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+
+body {
+    font-family: "Poppins", sans-serif;
+    background: linear-gradient(120deg, #f6d365, #fda085);
+    margin: 0;
+    padding: 0;
+    color: #333;
+}
+
+.index-page,
+.login-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    text-align: center;
+}
+
+.title {
+    font-size: 2.5em;
+    margin-bottom: 0.2em;
+}
+
+.subtitle {
+    font-size: 1.2em;
+    margin-bottom: 2em;
+}
+
+.btn {
+    background: #00b09b;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.btn:hover {
+    background: #019782;
+}
+
+.btn.secondary {
+    background: #777;
+}
+
+.btn.small {
+    padding: 5px 10px;
+    font-size: 0.8em;
+}
+
+/* ===== Perfil ===== */
+.profile-header {
+    background: linear-gradient(90deg, #00b09b, #96c93d);
+    color: white;
+    padding: 20px;
+    border-bottom-left-radius: 20px;
+    border-bottom-right-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    position: relative;
+    z-index: 10;
+    /* Garante que o avatar e informações fiquem visíveis */
+}
+
+.avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #fda085;
+    border: 3px solid rgba(255, 255, 255, 0.7);
+}
+
+.profile-info {
+    flex: 1;
+    margin-left: 15px;
+}
+
+.profile-info h2 {
+    margin: 0;
+    font-size: 1.4em;
+}
+
+#xpBar,
+#financeProgressBar {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    height: 8px;
+    margin: 6px 0;
+}
+
+#xpProgress {
+    background: linear-gradient(90deg, #f6d365, #fda085);
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.5s ease;
+}
+
+#financeProgress {
+    background: linear-gradient(90deg, #42e695, #3bb2b8);
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.5s ease;
+}
+
+/* ===== Cards do dashboard ===== */
+.dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+    padding: 20px;
+}
+
+.card {
+    background: linear-gradient(145deg, #ffffff, #f7f7f7);
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+}
+
+.card h3 {
+    font-size: 1.4em;
+    color: #333;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+/* ===== Inputs ===== */
+.inputs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.inputs input {
+    flex: 1 1 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    background: #f9f9f9;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.inputs button {
+    background: linear-gradient(90deg, #00b09b, #96c93d);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 15px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: transform 0.2s ease;
+}
+
+.inputs button:hover {
+    opacity: 0.9;
+    transform: scale(1.05);
+}
+
+/* ===== Listas ===== */
+ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+li {
+    background: white;
+    border-radius: 10px;
+    margin: 5px 0;
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: background 0.2s ease;
+}
+
+li:hover {
+    background: #f1f9f7;
+}
+
+li span {
+    font-size: 0.95em;
+    font-weight: 500;
+}
+
+.edit,
+.del {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 1.2em;
+    transition: transform 0.2s;
+}
+
+.edit:hover {
+    color: #27ae60;
+    transform: scale(1.2);
+}
+
+.del:hover {
+    color: #e74c3c;
+    transform: scale(1.2);
+}
+
+/* ===== Assistente Financeiro ===== */
+.card.assistente {
+    background: linear-gradient(135deg, #c3ec52, #0ba29d);
+    color: #fff;
+}
+
+.card.assistente .inputs input {
+    border: none;
+    padding: 8px;
+    border-radius: 5px;
+}
+
+.card.assistente .inputs button {
+    background: #fff;
+    color: #0ba29d;
+    font-weight: bold;
+}
+
+.assistente-resposta {
+    margin-top: 10px;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 0.95em;
+}
+
+/* ===== Gráfico ===== */
+.card.grafico {
+    background: #fff;
+    border-radius: 15px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    text-align: center;
+}
+
+#graficoMensal {
+    max-width: 100%;
+    height: 260px;
+}
+
+/* ===== 🎯 METAS DINÂMICAS ===== */
+.card.metas {
+    background: linear-gradient(145deg, #ffffff, #f4fff9);
+    border-left: 6px solid #42e695;
+}
+
+.meta-info {
+    font-size: 0.9em;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.meta-bar {
+    width: 100%;
+    height: 8px;
+    background: #eee;
+    border-radius: 6px;
+    margin-top: 5px;
+    overflow: hidden;
+}
+
+.meta-progress {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #42e695, #3bb2b8);
+    transition: width 0.6s ease-in-out;
+}
+
+/* Botões das metas */
+.card.metas button {
+    background: #00b09b;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 0.85em;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.card.metas button:hover {
+    transform: scale(1.1);
+}
+
+/* ===== 📊 COMPARATIVO DE CONTAS FIXAS ===== */
+.card.comparativo {
+    background: linear-gradient(135deg, #fff, #f9f9f9);
+    border-left: 6px solid #ff9f43;
+    color: #444;
+}
+
+#comparativoFixas {
+    font-size: 0.95em;
+    line-height: 1.5em;
+    padding-top: 5px;
+}
+
+#comparativoFixas em {
+    color: #999;
+}
+
+#comparativoFixas strong {
+    color: #00b09b;
+}
+
+/* Container das checkboxes mais compacto */
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 10px 0;
+    width: fit-content;
+    /* Ocupa apenas o tamanho do texto */
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    /* Diminuí um pouco a fonte para ganhar espaço */
+    color: #444;
+    cursor: pointer;
+    white-space: nowrap;
+    /* Impede o texto de quebrar linha */
+}
+
+/* Container da linha de baixo */
+.despesas .inputs-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    /* Alinha tudo à esquerda */
+    gap: 20px;
+    /* Espaço fixo entre checkboxes e botão */
+    width: 100%;
+}
+
+/* Botão "+" mais discreto e alinhado */
+.despesas #addDespesas {
+    width: 45px;
+    height: 45px;
+    border-radius: 10px;
+    flex-shrink: 0;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+
+
+#listaDespesas li,
+#listaGanhos li {
+    background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
+    color: white;
+    font-weight: 500;
+    border: none;
+    margin-bottom: 8px;
+    padding: 12px 15px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Estilo para os emojis de editar/excluir ficarem bonitos no fundo verde */
+.actions {
+    display: flex;
+    gap: 8px;
+}
+
+.actions button {
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    cursor: pointer;
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.1));
+    transition: opacity 0.2s;
+}
+
+.actions button:hover {
+    opacity: 0.7;
+}
+
+
+/* Limita o tamanho da lista de metas e adiciona o scroll */
+#listaMetas {
+    max-height: 300px;
+    /* Altura máxima antes de aparecer o scroll */
+    overflow-y: auto;
+    /* Ativa o scroll vertical apenas quando necessário */
+    padding-right: 10px;
+    /* Espaço para a barra de rolagem não cobrir o texto */
+}
+
+/* Personalizando a barra de rolagem (Webkit - Chrome/Edge/Safari) */
+#listaMetas::-webkit-scrollbar {
+    width: 6px;
+}
+
+#listaMetas::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 10px;
+}
+
+#listaMetas::-webkit-scrollbar-thumb {
+    background: #00b09b;
+    /* Cor verde combinando com o tema */
+    border-radius: 10px;
+}
+
+#listaMetas::-webkit-scrollbar-thumb:hover {
+    background: #96c93d;
+}
+
+/* Estilização extra para os itens da meta não ficarem apertados */
+.meta-item {
+    background: #f9f9f9;
+    border-left: 4px solid #00b09b;
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 4px;
+}
+
+/* Estilo das partículas de emoji */
+.xp-particle {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    font-size: 24px;
+    animation: flyUp 1.5s ease-out forwards;
+}
+
+@keyframes flyUp {
+    0% {
+        transform: translate(0, 0) scale(1);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(var(--x), var(--y)) scale(0);
+        opacity: 0;
+    }
+}
