@@ -503,23 +503,22 @@ li span {
 }
 
 .avatar {
-    width: 85px;
+    width: 85px;          /* Tamanho do círculo */
     height: 85px;
-    border-radius: 50%;
+    border-radius: 50%;   /* Deixa redondo */
     
-    /* Tentativa 1: Se a imagem estiver dentro da pasta img */
+    /* Caminho da imagem - ajuste se a pasta for diferente */
     background-image: url('../img/casal.jpg'); 
     
-    /* Se a tentativa 1 falhar e a foto estiver na pasta raiz, use: 
-       background-image: url('../casal.jpg'); 
-    */
-
-    background-size: cover;
-    background-position: center;
-    border: 3px solid #ffffff;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    display: block; /* Garante que a div tenha volume */
-    background-color: #ddd; /* Cor de fundo caso a imagem falhe */
+    background-size: cover;    /* Preenche todo o círculo sem esticar */
+    background-position: center; /* Centraliza o rosto na foto */
+    
+    border: 3px solid #ffffff; /* Borda branca para destacar no verde */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); /* Sombra para dar profundidade */
+    
+    display: inline-block;
+    cursor: pointer;
+    transition: transform 0.3s ease;
 }
 
 .avatar:hover {
