@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Do Aperto ao Conforto 💰</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;700&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(-45deg, #00b09b, #96c93d, #2d5a27, #1e3c1a);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            overflow: hidden;
+            color: white;
+            position: relative;
+        }
+
+        @keyframes gradientBG {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        /* Container de Vidro */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 35px;
+            padding: 60px 40px;
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+            animation: fadeInUp 1s ease-out;
+            z-index: 10;
+            position: relative;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .title {
+            font-size: 2.8rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            text-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .subtitle {
+            font-size: 1.3rem;
+            font-weight: 300;
+            color: rgba(255, 255, 255, 0.95);
+            margin-bottom: 45px;
+            text-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-big {
+            display: inline-block;
+            background: #ffffff;
+            color: #1e3c1a;
+            padding: 20px 60px;
+            border-radius: 50px;
+            font-weight: 700;
+            text-decoration: none;
+            font-size: 1.3rem;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-big:hover {
+            transform: scale(1.1) translateY(-5px);
+            background: #f8f8f8;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Emojis Flutuantes - Sistema de Camadas */
+        .floating-icon {
+            position: absolute;
+            user-select: none;
+            z-index: 1;
+            filter: drop-shadow(0 5px 15px rgba(0, 0, 0, 0.2));
+            animation: floatAnim 10s ease-in-out infinite;
+        }
+
+        @keyframes floatAnim {
+
+            0%,
+            100% {
+                transform: translateY(0) rotate(0deg) scale(1);
+            }
+
+            50% {
+                transform: translateY(-40px) rotate(20deg) scale(1.1);
+            }
+        }
+
+        /* Posicionamento dos Emojis (Muitos!) */
+        .icon1 {
+            top: 5%;
+            left: 5%;
+            font-size: 3rem;
+            animation-delay: 0s;
+        }
+
+        .icon2 {
+            top: 80%;
+            left: 8%;
+            font-size: 4rem;
+            animation-delay: 2s;
+        }
+
+        .icon3 {
+            top: 10%;
+            right: 5%;
+            font-size: 3.5rem;
+            animation-delay: 4s;
+        }
+
+        .icon4 {
+            top: 85%;
+            right: 10%;
+            font-size: 4.5rem;
+            animation-delay: 1s;
+        }
+
+        .icon5 {
+            top: 45%;
+            left: 5%;
+            font-size: 2rem;
+            animation-delay: 3s;
+            opacity: 0.6;
+        }
+
+        .icon6 {
+            top: 50%;
+            right: 3%;
+            font-size: 2.5rem;
+            animation-delay: 5s;
+            opacity: 0.6;
+        }
+
+        .icon7 {
+            top: 2%;
+            left: 30%;
+            font-size: 2.2rem;
+            animation-delay: 1.5s;
+        }
+
+        .icon8 {
+            bottom: 2%;
+            left: 45%;
+            font-size: 2.8rem;
+            animation-delay: 3.5s;
+        }
+
+        .icon9 {
+            top: 15%;
+            left: 55%;
+            font-size: 1.8rem;
+            animation-delay: 2.5s;
+            opacity: 0.5;
+        }
+
+        .icon10 {
+            bottom: 25%;
+            left: 25%;
+            font-size: 2.3rem;
+            animation-delay: 4.5s;
+            opacity: 0.7;
+        }
+
+        .icon11 {
+            top: 40%;
+            right: 20%;
+            font-size: 2rem;
+            animation-delay: 0.8s;
+            opacity: 0.4;
+        }
+
+        .icon12 {
+            bottom: 10%;
+            right: 40%;
+            font-size: 3.2rem;
+            animation-delay: 6s;
+        }
+
+        .icon13 {
+            top: 60%;
+            left: 40%;
+            font-size: 1.5rem;
+            animation-delay: 7s;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="floating-icon icon1">💰</div>
+    <div class="floating-icon icon2">👩‍❤️‍👨</div>
+    <div class="floating-icon icon3">💎</div>
+    <div class="floating-icon icon4">🚀</div>
+    <div class="floating-icon icon5">💸</div>
+    <div class="floating-icon icon6">🏦</div>
+    <div class="floating-icon icon7">🥂</div>
+    <div class="floating-icon icon8">🏠</div>
+    <div class="floating-icon icon9">✨</div>
+    <div class="floating-icon icon10">📈</div>
+    <div class="floating-icon icon11">💍</div>
+    <div class="floating-icon icon12">🥳</div>
+    <div class="floating-icon icon13">🧡</div>
+
+    <main class="glass-card">
+        <h1 class="title">Adailton & Laryssa</h1>
+        <p class="subtitle">
+            Do Aperto ao Conforto Financeiro.<br>
+            Nossa jornada rumo à liberdade começa aqui! 👫✨
+        </p>
+        <a href="login.html" class="btn-big">VAMOS NESSA! 💪</a>
+    </main>
+</body>
+
+</html>

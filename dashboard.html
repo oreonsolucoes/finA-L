@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard - Adailton & Laryssa</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script type="module" src="js/dashboard.js" defer></script>
+    <script type="module" src="js/assistente.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="module" src="js/metas.js" defer></script>
+
+</head>
+
+<body>
+    <header class="profile-header">
+        <div class="avatar"></div>
+        <div class="profile-info">
+            <h2>Adailton & Laryssa 👩‍❤️‍👨</h2>
+            <p>Nível <span id="level">1</span> 🏅 | XP: <span id="xp">0</span>/100</p>
+            <div id="xpBar">
+                <div id="xpProgress"></div>
+            </div>
+            <p class="progress-title">Progresso Financeiro</p>
+            <div id="financeProgressBar">
+                <div id="financeProgress"></div>
+            </div>
+            <p></p>
+            <p id="financeStatus">Saldo atual: R$0</p>
+        </div>
+        <button id="logoutBtn" class="btn small">Sair</button>
+    </header>
+
+    <main class="dashboard">
+        <!-- GANHOS -->
+        <div class="card ganhos">
+            <h3>💵 Ganhos</h3>
+            <div class="inputs">
+                <input id="descGanhos" placeholder="Descrição">
+                <input id="valorGanhos" type="number" placeholder="Valor">
+                <button id="addGanhos">+</button>
+            </div>
+            <ul id="listaGanhos"></ul>
+        </div>
+
+        <!-- DESPESAS -->
+        <div class="card despesas">
+            <h3>💸 Despesas</h3>
+            <div class="inputs">
+                <input id="descDespesas" placeholder="Descrição">
+                <input id="valorDespesas" type="number" placeholder="Valor">
+        
+                <div class="inputs-row">
+                    <div class="checkbox-group">
+                        <label>
+                            <input type="checkbox" id="fixaDespesas">
+                            <span>Despesa Fixa (Próximo mês)</span>
+                        </label>
+                        <label>
+                            <input type="checkbox" id="valorFixoDespesas">
+                            <span>Valor Fixo (Manter R$)</span>
+                        </label>
+                    </div>
+                    <button id="addDespesas">+</button>
+                </div>
+            </div>
+            <ul id="listaDespesas"></ul>
+        </div>
+
+        <!-- RESERVAS -->
+        <div class="card reservas">
+            <h3>💳 Reservas</h3>
+            <div class="inputs">
+                <input id="descReservas" placeholder="Nome da reserva">
+                <input id="valorReservas" type="number" placeholder="Valor atual">
+                <input id="metaReservas" type="number" placeholder="Meta">
+                <button id="addReservas">Salvar</button>
+            </div>
+            <ul id="listaReservas"></ul>
+        </div>
+
+        <!-- METAS DINÂMICAS -->
+        <div class="card metas">
+            <h3>🎯 Metas Dinâmicas</h3>
+            <p class="meta-info">
+                Metas são atualizadas conforme o progresso! 🚀
+            </p>
+            <ul id="listaMetas"></ul>
+        </div>
+
+        <!-- GRÁFICO DE COMPARAÇÃO -->
+        <div class="card grafico">
+            <h3>📈 Comparativo Mensal</h3>
+            <canvas id="graficoMensal"></canvas>
+        </div>
+
+        <!-- COMPARATIVO DE CONTAS FIXAS -->
+        <div class="card comparativo">
+            <h3>📊 Comparativo de Contas Fixas</h3>
+            <div id="comparativoFixas">
+                <em>Comparando gastos fixos com o mês anterior...</em>
+            </div>
+        </div>
+
+        <!-- ASSISTENTE FINANCEIRO -->
+        <div class="card assistente">
+            <h3>🤖 Assistente Financeiro</h3>
+            <p>Faça uma pergunta! Por exemplo:<br>
+                <em>“Se gastarmos R$200 com jantar, ainda conseguimos bater nossa meta?”</em>
+            </p>
+            <div class="inputs">
+                <input id="perguntaFinanceira" placeholder="Digite sua pergunta...">
+                <button id="enviarPergunta">Perguntar</button>
+            </div>
+            <div id="respostaAssistente" class="assistente-resposta">
+                <em>O conselheiro vai te ajudar com base nas suas finanças ❤️</em>
+            </div>
+        </div>
+    </main>
+</body>
+
+</html>

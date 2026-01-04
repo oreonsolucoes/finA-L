@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Do Aperto ao Conforto</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <script type="module" src="js/auth.js" defer></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body.login-page {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Degradê animado que remete a finanças e crescimento */
+            background: linear-gradient(-45deg, #00b09b, #96c93d, #2d5a27);
+            background-size: 400% 400%;
+            animation: gradientBG 10s ease infinite;
+            overflow: hidden;
+        }
+
+        @keyframes gradientBG {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        .login-box {
+            background: rgba(255, 255, 255, 0.15);
+            /* Transparência do vidro */
+            backdrop-filter: blur(15px);
+            /* Efeito de desfoque */
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 40px;
+            border-radius: 25px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            color: white;
+            font-size: 1.8rem;
+            margin-bottom: 30px;
+            font-weight: 600;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        input {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            outline: none;
+            transition: 0.3s;
+            font-size: 1rem;
+        }
+
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        input:focus {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: #ffffff;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+            font-size: 1rem;
+            margin-bottom: 15px;
+        }
+
+        #loginBtn {
+            background: #ffffff;
+            color: #2d5a27;
+        }
+
+        #loginBtn:hover {
+            background: #e0e0e0;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn.secondary {
+            background: transparent;
+            border: 2px solid #ffffff;
+            color: #ffffff;
+        }
+
+        .btn.secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        /* Rodapé sutil */
+        .footer-info {
+            margin-top: 20px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+
+<body class="login-page">
+    <main class="login-box">
+    <h1>💸 Do Aperto ao Conforto</h1>
+    <input id="email" type="email" placeholder="Seu email">
+    <input id="password" type="password" placeholder="Sua senha">
+    
+    <button id="loginBtn" class="btn">Entrar</button>
+    
+    <div id="errorPopup" class="popup-error">
+        <span id="errorMessage"></span>
+    </div>
+    
+    <style>
+        /* Estilo do Pop-up de Erro */
+        .popup-error {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #ff4b2b;
+            /* Vermelho vibrante */
+            color: #fff;
+            text-align: center;
+            border-radius: 12px;
+            padding: 16px;
+            position: fixed;
+            z-index: 1000;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+    
+        .popup-error.show {
+            visibility: visible;
+            animation: fadein 0.5s, fadeout 0.5s 2.5s;
+        }
+    
+        @keyframes fadein {
+            from {
+                bottom: 0;
+                opacity: 0;
+            }
+    
+            to {
+                bottom: 30px;
+                opacity: 1;
+            }
+        }
+    
+        @keyframes fadeout {
+            from {
+                bottom: 30px;
+                opacity: 1;
+            }
+    
+            to {
+                bottom: 0;
+                opacity: 0;
+            }
+        }
+    </style>
+        
+
+        <div class="footer-info">
+            Gestão Financeira para Casais ❤️
+        </div>
+    </main>
+</body>
+
+</html>
