@@ -82,7 +82,6 @@ async function addRegistro(uid, tipo) {
     const desc = document.getElementById(`desc${capitalize(tipo)}`)?.value || '';
     const valor = parseFloat(document.getElementById(`valor${capitalize(tipo)}`)?.value);
 
-    // Captura as checkboxes (apenas para despesas)
     const ehFixa = document.getElementById(`fixa${capitalize(tipo)}`)?.checked || false;
     const ehValorFixo = document.getElementById(`valorFixo${capitalize(tipo)}`)?.checked || false;
 
@@ -97,13 +96,13 @@ async function addRegistro(uid, tipo) {
     const registroRef = ref(db, `financeiro/${uid}/${tipo}/${mesAno}`);
     const novoRef = push(registroRef);
 
-    // Salva as novas propriedades no Firebase
     await set(novoRef, {
         desc,
         valor,
         data: agora.toISOString(),
         fixa: ehFixa,
-        valorFixo: ehValorFixo
+        valorFixo: ehValorFixo,
+        pago: false // <-- NOVA LINHA: Toda despesa nasce não paga
     });
 
     addXP(10);
@@ -145,8 +144,21 @@ async function renderLista(uid, tipo) {
     Object.entries(meses).forEach(([mesAno, registros]) => {
         Object.entries(registros).forEach(([id, item]) => {
             const li = document.createElement('li');
+            
+            // Se for despesa e estiver paga, adiciona a classe CSS 'pago'
+            if (tipo === 'despesas' && item.pago) {
+                li.classList.add('pago');
+            }
+
             li.innerHTML = `
-      <span>${item.desc} - R$${item.valor?.toFixed(2) || 0} <small>(${mesAno})</small></span>
+      <div style="display: flex; align-items: center;">
+        ${tipo === 'despesas' ? `
+            <button class="check-pago" data-id="${id}" data-mes="${mesAno}" style="background:none; border:none; color:white; cursor:pointer; margin-right:10px; font-size:1.2rem;">
+                ${item.pago ? '✅' : '✔️'}
+            </button>
+        ` : ''}
+        <span>${item.desc} - R$${item.valor?.toFixed(2) || 0} <small>(${mesAno})</small></span>
+      </div>
       <div>
         <button class="edit" data-id="${id}" data-tipo="${tipo}" data-mes="${mesAno}">✏️</button>
         <button class="del" data-id="${id}" data-tipo="${tipo}" data-mes="${mesAno}">🗑️</button>
@@ -155,6 +167,24 @@ async function renderLista(uid, tipo) {
         });
     });
 
+    // LÓGICA DO BOTÃO PAGO (CHECK)
+    ul.querySelectorAll('.check-pago').forEach(b => {
+        b.onclick = async () => {
+            const mes = b.dataset.mes;
+            const id = b.dataset.id;
+            const li = b.closest('li');
+            const estaPago = li.classList.contains('pago');
+
+            // Inverte o estado no Firebase
+            const itemRef = ref(db, `financeiro/${uid}/despesas/${mes}/${id}`);
+            await update(itemRef, { pago: !estaPago });
+
+            // Atualiza a interface
+            carregarDados(uid); 
+        };
+    });
+
+    // LÓGICA DE EXCLUIR
     ul.querySelectorAll('.del').forEach(b => {
         b.onclick = async () => {
             await remove(ref(db, `financeiro/${uid}/${b.dataset.tipo}/${b.dataset.mes}/${b.dataset.id}`));
@@ -162,6 +192,7 @@ async function renderLista(uid, tipo) {
         };
     });
 
+    // LÓGICA DE EDITAR
     ul.querySelectorAll('.edit').forEach(b => {
         b.onclick = async () => {
             const novoValor = prompt("Novo valor:");
@@ -389,3 +420,4 @@ export async function atualizarGrafico(uid) {
 function capitalize(s) {
     return s.charAt(0).toUpperCase() + s.slice(1);
 }
+
