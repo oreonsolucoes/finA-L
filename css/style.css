@@ -524,3 +524,33 @@ li span {
 .avatar:hover {
     transform: scale(1.1); /* Efeito de zoom leve ao passar o mouse */
 }
+
+
+/* Estado Pago: Verde mais escuro e opaco */
+#listaDespesas li.pago {
+    background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%); /* Tons de verde escuro */
+    box-shadow: none;
+    opacity: 0.9;
+}
+
+/* O ícone de check/setinha */
+.btn-pago {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.2rem;
+    cursor: pointer;
+    margin-right: 15px;
+    transition: transform 0.2s ease;
+    padding: 5px;
+}
+
+.btn-pago:hover {
+    transform: scale(1.2);
+}
+
+/* Riscar o texto se estiver pago (opcional) */
+li.pago strong {
+    text-decoration: line-through;
+    opacity: 0.7;
+}
