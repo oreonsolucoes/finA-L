@@ -430,8 +430,7 @@
 (function(){
   "use strict";
 
-  // URL do seu Webhook de Produção do n8n (Insira o link gerado pelo nó do Webhook do n8n)
-  const N8N_WEBHOOK_URL = "https://n8n.oreonsolucoes.dpdns.org/webhook/84f4df30-a603-4a33-999e-fbb2eb42b0e8";
+
 
   const firebaseConfig = {
     apiKey: "AIzaSyC8hKLZ_pKHJ7DlS6OqvDvqzPk9FN3-8OM",
@@ -476,19 +475,7 @@
   const app = document.getElementById("app");
   const toastEl = document.getElementById("toast");
 
-  /* ---------------- n8n Webhook Trigger ---------------- */
-  async function dispararWebhookN8N(acao, item) {
-    if(!N8N_WEBHOOK_URL || N8N_WEBHOOK_URL.includes("https://n8n.oreonsolucoes.dpdns.org/webhook/84f4df30-a603-4a33-999e-fbb2eb42b0e8")) return;
-    try {
-      await fetch(N8N_WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ acao: acao, dados: item, timestamp: new Date().toISOString() })
-      });
-    } catch (e) {
-      console.error("Erro ao enviar dados para o n8n:", e);
-    }
-  }
+ 
 
   /* ---------------- storage (Firebase) ---------------- */
   function loadState(){
