@@ -1,254 +1,1045 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Do Aperto ao Conforto 💰</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;700&display=swap" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nosso Orçamento — Livro de Contas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,900;1,9..144,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #EEF1EC;
+    --paper-deep: #E4E9E2;
+    --rule: #CBD4C7;
+    --card: #FBFBF8;
+    --ink: #20302A;
+    --ink-soft: #5E6E64;
+    --ink-faint: #93A096;
+    --teal: #2F6F5E;
+    --teal-soft: #E3EEE9;
+    --wine: #8B3A52;
+    --wine-soft: #F3E3E7;
+    --ochre: #A87A2C;
+    --ochre-soft: #F2EADA;
+    --blue: #355E82;
+    --blue-soft: #E2E9EF;
+    --purple: #6C4F8C;
+    --purple-soft: #EAE3F0;
+    --grey: #5E6E64;
+    --grey-soft: #E7EAE5;
+    --shadow: 0 1px 2px rgba(32,48,42,0.06), 0 8px 24px rgba(32,48,42,0.08);
+    --shadow-sm: 0 1px 2px rgba(32,48,42,0.08);
+    --radius: 14px;
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'Inter', -apple-system, sans-serif;
+    --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+  }
 
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Poppins', sans-serif;
-        }
+  *{ box-sizing: border-box; }
+  html{ -webkit-text-size-adjust: 100%; }
+  body{
+    margin: 0;
+    background: var(--paper);
+    background-image:
+      linear-gradient(var(--paper) 0%, var(--paper-deep) 100%);
+    color: var(--ink);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    padding: 0 0 64px;
+  }
 
-        body {
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(-45deg, #00b09b, #96c93d, #2d5a27, #1e3c1a);
-            background-size: 400% 400%;
-            animation: gradientBG 15s ease infinite;
-            overflow: hidden;
-            color: white;
-            position: relative;
-        }
+  *:focus-visible{
+    outline: 2px solid var(--teal);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
 
-        @keyframes gradientBG {
-            0% {
-                background-position: 0% 50%;
-            }
+  button{ font-family: inherit; cursor: pointer; }
 
-            50% {
-                background-position: 100% 50%;
-            }
+  .wrap{
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 28px 20px 0;
+  }
 
-            100% {
-                background-position: 0% 50%;
-            }
-        }
+  /* ---------- Header ---------- */
+  .app-header{
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .eyebrow{
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 6px;
+  }
+  .title{
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 600;
+    font-size: 34px;
+    margin: 0 0 6px;
+    line-height: 1.05;
+    color: var(--ink);
+  }
+  .subtitle{
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 14.5px;
+    max-width: 38ch;
+  }
+  .header-actions{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .profile-pair{
+    display: flex;
+  }
+  .avatar{
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 12px; font-weight: 600;
+    color: #fff;
+    border: 2px solid var(--paper);
+  }
+  .profile-pair .avatar:not(:first-child){ margin-left: -8px; }
+  .icon-btn{
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--rule);
+    background: var(--card);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--ink-soft);
+    transition: transform .15s ease, background .15s ease;
+  }
+  .icon-btn:hover{ background: var(--teal-soft); color: var(--teal); transform: translateY(-1px); }
 
-        /* Container de Vidro */
-        .glass-card {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 35px;
-            padding: 60px 40px;
-            text-align: center;
-            max-width: 600px;
-            width: 90%;
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
-            animation: fadeInUp 1s ease-out;
-            z-index: 10;
-            position: relative;
-        }
+  /* ---------- Summary stub ---------- */
+  .stub{
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 22px 22px 18px;
+    position: relative;
+    transform: rotate(-0.35deg);
+    margin-bottom: 22px;
+    border: 1px solid rgba(32,48,42,0.05);
+  }
+  .stub::before{
+    content: "";
+    position: absolute;
+    top: -1px; left: 18px; right: 18px; height: 1px;
+    background-image: repeating-linear-gradient(90deg, var(--rule) 0 6px, transparent 6px 12px);
+  }
+  .stub-grid{
+    display: grid;
+    grid-template-columns: 1.15fr 1px 1fr 1px 1fr;
+    align-items: center;
+    gap: 18px;
+  }
+  .stub-div{ width: 1px; align-self: stretch; background: var(--rule); }
+  .stat-label{
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .stat-value{
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 24px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+  .stat-value.pos{ color: var(--teal); }
+  .stat-value.neg{ color: var(--wine); }
+  .stat-value.muted{ color: var(--ink); }
+  .stat-sub{ font-size: 11.5px; color: var(--ink-faint); margin-top: 4px; }
+  .pencil-btn{
+    border: none; background: none; color: var(--ink-faint);
+    width: 20px; height: 20px; display:inline-flex; align-items:center; justify-content:center;
+    border-radius: 5px;
+  }
+  .pencil-btn:hover{ color: var(--teal); background: var(--teal-soft); }
 
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(40px);
-            }
+  .saldo-edit-form{
+    display: flex; gap: 8px; align-items: center; margin-top: 4px;
+  }
+  .saldo-edit-form input{
+    width: 130px;
+    font-family: var(--font-mono);
+    font-size: 18px;
+    padding: 4px 8px;
+    border: 1px solid var(--teal);
+    border-radius: 8px;
+    background: #fff;
+  }
 
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
+  /* ---------- Buttons ---------- */
+  .btn{
+    border: none;
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 13.5px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+  }
+  .btn-primary{ background: var(--teal); color: #fff; box-shadow: var(--shadow-sm); }
+  .btn-primary:hover{ transform: translateY(-1px); box-shadow: 0 4px 14px rgba(47,111,94,0.32); }
+  .btn-ghost{ background: transparent; color: var(--ink-soft); border: 1px solid var(--rule); }
+  .btn-ghost:hover{ background: var(--grey-soft); }
+  .btn-text{ background: none; color: var(--ink-soft); padding: 8px 10px; font-weight: 500; }
+  .btn-text:hover{ color: var(--ink); }
+  .btn-danger{ background: var(--wine-soft); color: var(--wine); }
+  .btn-danger:hover{ background: #ecd2da; }
+  .btn-sm{ padding: 6px 10px; font-size: 12px; border-radius: 8px; }
+  .btn[disabled]{ opacity: .55; cursor: default; transform:none; box-shadow:none; }
 
-        .title {
-            font-size: 2.8rem;
-            font-weight: 700;
-            margin-bottom: 15px;
-            text-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-        }
+  /* ---------- Add expense ---------- */
+  .add-section{ margin-bottom: 22px; }
+  .add-toggle{ width: 100%; justify-content: center; }
+  .expense-form{
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px;
+    margin-top: 12px;
+    border: 1px solid rgba(32,48,42,0.05);
+  }
+  .form-title{
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 18px;
+    margin: 0 0 14px;
+  }
+  .field-grid{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 14px;
+  }
+  .field{ display:flex; flex-direction:column; gap:5px; }
+  .field.full{ grid-column: 1 / -1; }
+  .field label{
+    font-size: 11.5px; font-weight: 600; color: var(--ink-soft);
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .field input[type=text], .field input[type=number], .field input[type=date], .field select{
+    border: 1px solid var(--rule);
+    border-radius: 9px;
+    padding: 9px 10px;
+    font-family: var(--font-body);
+    font-size: 14.5px;
+    background: #fff;
+    color: var(--ink);
+    width: 100%;
+  }
+  .field input[type=number]{ font-family: var(--font-mono); }
+  .money-input{ position: relative; }
+  .money-input span{
+    position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+    font-family: var(--font-mono); font-size: 13px; color: var(--ink-faint);
+  }
+  .money-input input{ padding-left: 32px; }
 
-        .subtitle {
-            font-size: 1.3rem;
-            font-weight: 300;
-            color: rgba(255, 255, 255, 0.95);
-            margin-bottom: 45px;
-            text-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-        }
+  .chip-toggle{ display: flex; gap: 8px; }
+  .chip-toggle button{
+    flex: 1;
+    border: 1.5px solid var(--rule);
+    background: #fff;
+    border-radius: 9px;
+    padding: 8px 10px;
+    font-size: 13px; font-weight: 600;
+    color: var(--ink-soft);
+    display: flex; align-items: center; gap: 6px; justify-content: center;
+  }
+  .chip-toggle button .dot{ width: 8px; height: 8px; border-radius: 50%; }
+  .chip-toggle button.active{ border-color: var(--teal); color: var(--teal); background: var(--teal-soft); }
 
-        .btn-big {
-            display: inline-block;
-            background: #ffffff;
-            color: #1e3c1a;
-            padding: 20px 60px;
-            border-radius: 50px;
-            font-weight: 700;
-            text-decoration: none;
-            font-size: 1.3rem;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
-        }
+  .checkbox-row{
+    display: flex; align-items: center; gap: 8px;
+    grid-column: 1 / -1;
+  }
+  .checkbox-row input{ width: 16px; height: 16px; accent-color: var(--teal); }
+  .checkbox-row label{ font-size: 13.5px; color: var(--ink); font-weight: 500; }
 
-        .btn-big:hover {
-            transform: scale(1.1) translateY(-5px);
-            background: #f8f8f8;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
-        }
+  .form-actions{
+    display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;
+    grid-column: 1/-1;
+  }
+  [hidden]{ display: none !important; }
 
-        /* Emojis Flutuantes - Sistema de Camadas */
-        .floating-icon {
-            position: absolute;
-            user-select: none;
-            z-index: 1;
-            filter: drop-shadow(0 5px 15px rgba(0, 0, 0, 0.2));
-            animation: floatAnim 10s ease-in-out infinite;
-        }
+  /* ---------- Filters ---------- */
+  .filters{
+    display: flex; gap: 4px; margin-bottom: 14px;
+    border-bottom: 1px solid var(--rule);
+    overflow-x: auto;
+  }
+  .filter-tab{
+    background: none; border: none;
+    padding: 9px 13px;
+    font-size: 13px; font-weight: 600;
+    color: var(--ink-faint);
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+  }
+  .filter-tab.active{ color: var(--teal); border-bottom-color: var(--teal); }
+  .filter-tab .count{ font-family: var(--font-mono); font-weight: 400; }
 
-        @keyframes floatAnim {
+  /* ---------- Ledger list ---------- */
+  .ledger-list{ display: flex; flex-direction: column; }
+  .ledger-row{
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--card);
+    border-radius: 10px;
+    padding: 13px 14px;
+    margin-bottom: 8px;
+    box-shadow: var(--shadow-sm);
+    border-left: 4px solid var(--ink-faint);
+    position: relative;
+  }
+  .ledger-row.pago{ opacity: 0.78; }
+  .row-main{ flex: 1; min-width: 0; }
+  .row-desc{
+    font-weight: 600; font-size: 14.5px; color: var(--ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .row-meta{
+    display: flex; align-items: center; gap: 8px; margin-top: 4px;
+    font-size: 12px; color: var(--ink-faint);
+    flex-wrap: wrap;
+  }
+  .pill{
+    font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em;
+    padding: 2px 8px; border-radius: 100px;
+  }
+  .row-side{
+    display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+  }
+  .row-value-wrap{ text-align: right; }
+  .row-value{
+    font-family: var(--font-mono); font-weight: 600; font-size: 16px;
+    font-variant-numeric: tabular-nums;
+  }
+  .row-paid-date{ font-size: 10.5px; color: var(--ink-faint); margin-top: 2px; }
+  .stamp{
+    font-family: var(--font-mono);
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em;
+    padding: 3px 8px;
+    border-radius: 100px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .stamp.pago{
+    border: 1.5px solid var(--teal); color: var(--teal);
+    transform: rotate(-6deg);
+  }
+  .stamp.pendente{ border: 1.5px dashed var(--ochre); color: var(--ochre); }
+  .stamp.atrasada{ border: 1.5px dashed var(--wine); color: var(--wine); }
+  .row-actions{ display: flex; gap: 4px; flex-shrink: 0; }
+  .row-actions button{
+    width: 28px; height: 28px; border-radius: 7px; border: none; background: none;
+    color: var(--ink-faint); display: flex; align-items: center; justify-content: center;
+  }
+  .row-actions button:hover{ background: var(--grey-soft); color: var(--ink); }
+  .row-actions button.mark-paid:hover{ background: var(--teal-soft); color: var(--teal); }
+  .row-actions button.del:hover{ background: var(--wine-soft); color: var(--wine); }
 
-            0%,
-            100% {
-                transform: translateY(0) rotate(0deg) scale(1);
-            }
+  .empty-state{
+    text-align: center; padding: 48px 20px;
+    color: var(--ink-faint);
+  }
+  .empty-state svg{ margin-bottom: 12px; opacity: .55; }
+  .empty-state p{ margin: 0; font-size: 14px; }
+  .empty-state strong{ display:block; color: var(--ink-soft); font-size: 15px; margin-bottom: 4px; font-family: var(--font-display); font-style: italic; }
 
-            50% {
-                transform: translateY(-40px) rotate(20deg) scale(1.1);
-            }
-        }
+  .loading-state{ text-align:center; padding: 60px 20px; color: var(--ink-faint); font-size: 13.5px; font-family: var(--font-mono); }
 
-        /* Posicionamento dos Emojis (Muitos!) */
-        .icon1 {
-            top: 5%;
-            left: 5%;
-            font-size: 3rem;
-            animation-delay: 0s;
-        }
+  /* ---------- Modal ---------- */
+  .modal-overlay{
+    position: fixed; inset: 0; background: rgba(32,48,42,0.38);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; z-index: 50;
+  }
+  .modal{
+    background: var(--card); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 22px; width: 100%; max-width: 420px;
+    max-height: 86vh; overflow-y: auto;
+  }
+  .modal h3{ font-family: var(--font-display); font-style: italic; font-size: 19px; margin: 0 0 14px; }
+  .modal .field-grid{ margin-bottom: 4px; }
+  .modal-actions{ display:flex; justify-content:flex-end; gap: 10px; margin-top: 18px; }
+  .modal-warn{ font-size: 13px; color: var(--ink-soft); line-height: 1.5; margin: 0 0 4px; }
+  .settings-block{ margin-bottom: 18px; }
+  .settings-block:last-child{ margin-bottom: 0; }
+  .settings-block h4{ font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); margin: 0 0 8px; }
 
-        .icon2 {
-            top: 80%;
-            left: 8%;
-            font-size: 4rem;
-            animation-delay: 2s;
-        }
+  /* ---------- Toast ---------- */
+  #toast{
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 100px;
+    font-size: 13px; opacity: 0; pointer-events: none; transition: all .25s ease;
+    z-index: 60; box-shadow: var(--shadow);
+  }
+  #toast.show{ opacity: 1; transform: translateX(-50%) translateY(0); }
 
-        .icon3 {
-            top: 10%;
-            right: 5%;
-            font-size: 3.5rem;
-            animation-delay: 4s;
-        }
+  /* ---------- Responsive ---------- */
+  @media (max-width: 600px){
+    .wrap{ padding: 20px 14px 0; }
+    .title{ font-size: 27px; }
+    .stub-grid{ grid-template-columns: 1fr; gap: 14px; }
+    .stub-div{ display: none; }
+    .stub{ transform: none; }
+    .field-grid{ grid-template-columns: 1fr; }
+    .ledger-row{ flex-wrap: wrap; }
+    .row-side{ width: 100%; justify-content: space-between; padding-top: 8px; border-top: 1px dashed var(--rule); margin-top: 8px; }
+  }
 
-        .icon4 {
-            top: 85%;
-            right: 10%;
-            font-size: 4.5rem;
-            animation-delay: 1s;
-        }
-
-        .icon5 {
-            top: 45%;
-            left: 5%;
-            font-size: 2rem;
-            animation-delay: 3s;
-            opacity: 0.6;
-        }
-
-        .icon6 {
-            top: 50%;
-            right: 3%;
-            font-size: 2.5rem;
-            animation-delay: 5s;
-            opacity: 0.6;
-        }
-
-        .icon7 {
-            top: 2%;
-            left: 30%;
-            font-size: 2.2rem;
-            animation-delay: 1.5s;
-        }
-
-        .icon8 {
-            bottom: 2%;
-            left: 45%;
-            font-size: 2.8rem;
-            animation-delay: 3.5s;
-        }
-
-        .icon9 {
-            top: 15%;
-            left: 55%;
-            font-size: 1.8rem;
-            animation-delay: 2.5s;
-            opacity: 0.5;
-        }
-
-        .icon10 {
-            bottom: 25%;
-            left: 25%;
-            font-size: 2.3rem;
-            animation-delay: 4.5s;
-            opacity: 0.7;
-        }
-
-        .icon11 {
-            top: 40%;
-            right: 20%;
-            font-size: 2rem;
-            animation-delay: 0.8s;
-            opacity: 0.4;
-        }
-
-        .icon12 {
-            bottom: 10%;
-            right: 40%;
-            font-size: 3.2rem;
-            animation-delay: 6s;
-        }
-
-        .icon13 {
-            top: 60%;
-            left: 40%;
-            font-size: 1.5rem;
-            animation-delay: 7s;
-            opacity: 0.3;
-        }
-    </style>
+  @media (prefers-reduced-motion: reduce){
+    *{ transition: none !important; }
+  }
+</style>
 </head>
-
 <body>
-    <div class="floating-icon icon1">💰</div>
-    <div class="floating-icon icon2">👩‍❤️‍👨</div>
-    <div class="floating-icon icon3">💎</div>
-    <div class="floating-icon icon4">🚀</div>
-    <div class="floating-icon icon5">💸</div>
-    <div class="floating-icon icon6">🏦</div>
-    <div class="floating-icon icon7">🥂</div>
-    <div class="floating-icon icon8">🏠</div>
-    <div class="floating-icon icon9">✨</div>
-    <div class="floating-icon icon10">📈</div>
-    <div class="floating-icon icon11">💍</div>
-    <div class="floating-icon icon12">🥳</div>
-    <div class="floating-icon icon13">🧡</div>
 
-    <main class="glass-card">
-        <h1 class="title">Adailton & Laryssa</h1>
-        <p class="subtitle">
-            Do Aperto ao Conforto Financeiro.<br>
-            Nossa jornada rumo à liberdade começa aqui! 👫✨
-        </p>
-        <a href="login.html" class="btn-big">VAMOS NESSA! 💪</a>
-    </main>
+<div class="wrap" id="app">
+  <div class="loading-state">carregando livro de contas…</div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  const STORAGE_KEY = "orcamento-casal-v1";
+  const CATEGORIAS = [
+    { id: "moradia",     nome: "Moradia",     cor: "var(--teal)",   soft: "var(--teal-soft)" },
+    { id: "mercado",     nome: "Mercado",     cor: "var(--ochre)",  soft: "var(--ochre-soft)" },
+    { id: "transporte",  nome: "Transporte",  cor: "var(--blue)",   soft: "var(--blue-soft)" },
+    { id: "saude",       nome: "Saúde",       cor: "var(--wine)",   soft: "var(--wine-soft)" },
+    { id: "lazer",       nome: "Lazer",       cor: "var(--purple)", soft: "var(--purple-soft)" },
+    { id: "outros",      nome: "Outros",      cor: "var(--grey)",   soft: "var(--grey-soft)" }
+  ];
+
+  function defaultState(){
+    return {
+      saldo: 0,
+      perfis: [
+        { id: "p1", nome: "Você",       cor: "#2F6F5E" },
+        { id: "p2", nome: "Parceiro(a)", cor: "#8B3A52" }
+      ],
+      despesas: []
+    };
+  }
+
+  let state = defaultState();
+  let loaded = false;
+  let activeFilter = "todas";
+  let formOpen = false;
+  let modal = null; // { type, payload }
+
+  const app = document.getElementById("app");
+  const toastEl = document.getElementById("toast");
+
+  /* ---------------- storage ---------------- */
+  async function loadState(){
+    try{
+      const res = await window.storage.get(STORAGE_KEY, true);
+      if(res && res.value){
+        const parsed = JSON.parse(res.value);
+        state = Object.assign(defaultState(), parsed);
+      }
+    }catch(e){
+      // no data yet, keep defaults
+    }
+    loaded = true;
+    render();
+  }
+
+  async function saveState(){
+    try{
+      const res = await window.storage.set(STORAGE_KEY, JSON.stringify(state), true);
+      if(!res) showToast("Não foi possível salvar agora. Tente novamente.");
+    }catch(e){
+      showToast("Não foi possível salvar agora. Tente novamente.");
+    }
+  }
+
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=> toastEl.classList.remove("show"), 3200);
+  }
+
+  /* ---------------- helpers ---------------- */
+  function uid(){
+    return (crypto.randomUUID ? crypto.randomUUID() : "id-" + Date.now() + "-" + Math.random().toString(36).slice(2));
+  }
+  function todayISO(){
+    const d = new Date();
+    const local = new Date(d.getTime() - d.getTimezoneOffset()*60000);
+    return local.toISOString().slice(0,10);
+  }
+  function fmtMoney(v){
+    const n = Number(v) || 0;
+    return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  }
+  function fmtDate(iso){
+    if(!iso) return "—";
+    const [y,m,d] = iso.split("-");
+    return `${d}/${m}/${y}`;
+  }
+  function diasAtraso(iso){
+    const a = new Date(iso + "T00:00:00");
+    const b = new Date(todayISO() + "T00:00:00");
+    return Math.round((b-a)/86400000);
+  }
+  function categoria(id){
+    return CATEGORIAS.find(c => c.id === id) || CATEGORIAS[CATEGORIAS.length-1];
+  }
+  function perfil(id){
+    return state.perfis.find(p => p.id === id) || state.perfis[0];
+  }
+  function esc(s){
+    return String(s).replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+  }
+
+  function isOverdue(d){ return !d.pago && d.vencimento < todayISO(); }
+
+  function totals(){
+    const pendentes = state.despesas.filter(d => !d.pago);
+    const totalPendente = pendentes.reduce((s,d)=> s + d.valor, 0);
+    return {
+      totalPendente,
+      previsao: state.saldo - totalPendente,
+      qtdTodas: state.despesas.length,
+      qtdPendentes: pendentes.length,
+      qtdPagas: state.despesas.filter(d=>d.pago).length,
+      qtdAtrasadas: state.despesas.filter(isOverdue).length
+    };
+  }
+
+  function filteredDespesas(){
+    let list = state.despesas.slice();
+    if(activeFilter === "pendentes") list = list.filter(d => !d.pago);
+    else if(activeFilter === "pagas") list = list.filter(d => d.pago);
+    else if(activeFilter === "atrasadas") list = list.filter(isOverdue);
+    list.sort((a,b) => (a.vencimento || "").localeCompare(b.vencimento || ""));
+    return list;
+  }
+
+  /* ---------------- render ---------------- */
+  function render(){
+    if(!loaded){
+      app.innerHTML = `<div class="loading-state">carregando livro de contas…</div>`;
+      return;
+    }
+    const t = totals();
+    app.innerHTML = `
+      ${renderHeader()}
+      ${renderStub(t)}
+      ${renderAddSection()}
+      ${renderFilters(t)}
+      ${renderList()}
+    `;
+    if(modal) renderModal();
+    else closeModalDom();
+  }
+
+  function renderHeader(){
+    const chips = state.perfis.map((p,i) => `<div class="avatar" style="background:${p.cor}; ${i>0?'z-index:'+(2-i)+';':''}" title="${esc(p.nome)}">${esc(p.nome.trim().charAt(0).toUpperCase())}</div>`).join("");
+    return `
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Livro de contas · casal</p>
+        <h1 class="title">Nosso Orçamento</h1>
+        <p class="subtitle">Lancem despesas, marquem o que já foi pago e acompanhem o saldo da casa juntos.</p>
+      </div>
+      <div class="header-actions">
+        <div class="profile-pair">${chips}</div>
+        <button class="icon-btn" data-action="open-settings" title="Configurações" aria-label="Configurações">${iconGear()}</button>
+      </div>
+    </header>`;
+  }
+
+  function renderStub(t){
+    const saldoClass = state.saldo < 0 ? "neg" : "pos";
+    const previsaoClass = t.previsao < 0 ? "neg" : "muted";
+    return `
+    <section class="stub">
+      <div class="stub-grid">
+        <div>
+          <p class="stat-label">Saldo atual <button class="pencil-btn" data-action="edit-saldo" title="Ajustar saldo" aria-label="Ajustar saldo">${iconPencil()}</button></p>
+          <div class="stat-value ${saldoClass}">${fmtMoney(state.saldo)}</div>
+          <p class="stat-sub">Ajuste sempre que conferir com o banco</p>
+        </div>
+        <div class="stub-div"></div>
+        <div>
+          <p class="stat-label">A pagar</p>
+          <div class="stat-value muted">${fmtMoney(t.totalPendente)}</div>
+          <p class="stat-sub">${t.qtdPendentes} despesa${t.qtdPendentes===1?"":"s"} pendente${t.qtdPendentes===1?"":"s"}</p>
+        </div>
+        <div class="stub-div"></div>
+        <div>
+          <p class="stat-label">Previsão</p>
+          <div class="stat-value ${previsaoClass}">${fmtMoney(t.previsao)}</div>
+          <p class="stat-sub">Saldo após pagar tudo que falta</p>
+        </div>
+      </div>
+    </section>`;
+  }
+
+  function renderAddSection(){
+    if(!formOpen){
+      return `
+      <section class="add-section">
+        <button class="btn btn-primary add-toggle" data-action="toggle-form">${iconPlus()} Nova despesa</button>
+      </section>`;
+    }
+    const profileChips = state.perfis.map((p,i) => `
+      <button type="button" class="chip-person ${i===0?'active':''}" data-profile="${p.id}">
+        <span class="dot" style="background:${p.cor}"></span>${esc(p.nome)}
+      </button>`).join("");
+    const catOptions = CATEGORIAS.map(c => `<option value="${c.id}">${c.nome}</option>`).join("");
+    return `
+    <section class="add-section">
+      <form class="expense-form" id="expenseForm">
+        <p class="form-title">Lançar nova despesa</p>
+        <div class="field-grid">
+          <div class="field full">
+            <label for="f-desc">Descrição</label>
+            <input type="text" id="f-desc" name="descricao" placeholder="Ex.: Conta de luz" required maxlength="80">
+          </div>
+          <div class="field">
+            <label for="f-valor">Valor</label>
+            <div class="money-input">
+              <span>R$</span>
+              <input type="number" id="f-valor" name="valor" step="0.01" min="0.01" placeholder="0,00" required>
+            </div>
+          </div>
+          <div class="field">
+            <label for="f-venc">Vencimento</label>
+            <input type="date" id="f-venc" name="vencimento" required value="${todayISO()}">
+          </div>
+          <div class="field">
+            <label for="f-cat">Categoria</label>
+            <select id="f-cat" name="categoria">${catOptions}</select>
+          </div>
+          <div class="field">
+            <label>Quem lançou</label>
+            <div class="chip-toggle" id="addPersonToggle">${profileChips}</div>
+          </div>
+          <div class="checkbox-row">
+            <input type="checkbox" id="f-jaPaga" name="jaPaga">
+            <label for="f-jaPaga">Já está paga</label>
+          </div>
+          <div class="field full" id="paidDateField" hidden>
+            <label for="f-dataPag">Data do pagamento</label>
+            <input type="date" id="f-dataPag" name="dataPagamento" value="${todayISO()}">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-text" data-action="toggle-form">Cancelar</button>
+          <button type="submit" class="btn btn-primary">${iconPlus()} Lançar despesa</button>
+        </div>
+      </form>
+    </section>`;
+  }
+
+  function renderFilters(t){
+    const tabs = [
+      { id: "todas", label: "Todas", count: t.qtdTodas },
+      { id: "pendentes", label: "Pendentes", count: t.qtdPendentes },
+      { id: "pagas", label: "Pagas", count: t.qtdPagas },
+      { id: "atrasadas", label: "Atrasadas", count: t.qtdAtrasadas }
+    ];
+    return `
+    <nav class="filters">
+      ${tabs.map(tab => `
+        <button class="filter-tab ${activeFilter===tab.id?'active':''}" data-action="set-filter" data-filter="${tab.id}">
+          ${tab.label} <span class="count">(${tab.count})</span>
+        </button>`).join("")}
+    </nav>`;
+  }
+
+  function renderList(){
+    const list = filteredDespesas();
+    if(state.despesas.length === 0){
+      return `
+      <div class="empty-state">
+        ${iconLedger()}
+        <strong>Nenhuma despesa lançada ainda</strong>
+        <p>Use o botão acima para adicionar a primeira linha do livro.</p>
+      </div>`;
+    }
+    if(list.length === 0){
+      return `
+      <div class="empty-state">
+        ${iconLedger()}
+        <strong>Nada por aqui</strong>
+        <p>Nenhuma despesa encontrada neste filtro.</p>
+      </div>`;
+    }
+    return `<div class="ledger-list">${list.map(renderRow).join("")}</div>`;
+  }
+
+  function renderRow(d){
+    const cat = categoria(d.categoria);
+    const p = perfil(d.adicionadoPor);
+    const overdue = isOverdue(d);
+    let stampHtml;
+    if(d.pago) stampHtml = `<span class="stamp pago">Pago</span>`;
+    else if(overdue) stampHtml = `<span class="stamp atrasada">Atrasada</span>`;
+    else stampHtml = `<span class="stamp pendente">Pendente</span>`;
+
+    const metaParts = [
+      `<span class="pill" style="background:${cat.soft}; color:${cat.cor}">${esc(cat.nome)}</span>`,
+      `<span>vence ${fmtDate(d.vencimento)}</span>`
+    ];
+    if(overdue) metaParts.push(`<span style="color:var(--wine); font-weight:600;">${diasAtraso(d.vencimento)}d em atraso</span>`);
+
+    return `
+    <div class="ledger-row ${d.pago?'pago':''}" style="border-left-color:${cat.cor}" data-id="${d.id}">
+      <div class="row-main">
+        <div class="row-desc">${esc(d.descricao)}</div>
+        <div class="row-meta">${metaParts.join("")}</div>
+      </div>
+      <div class="row-side">
+        <div class="avatar" style="width:22px;height:22px;font-size:10px;background:${p.cor}" title="${esc(p.nome)}">${esc(p.nome.trim().charAt(0).toUpperCase())}</div>
+        <div class="row-value-wrap">
+          <div class="row-value">${fmtMoney(d.valor)}</div>
+          ${d.pago ? `<div class="row-paid-date">pago em ${fmtDate(d.dataPagamento)}</div>` : ""}
+        </div>
+        ${stampHtml}
+        <div class="row-actions">
+          <button class="mark-paid" data-action="toggle-paid" data-id="${d.id}" title="${d.pago?'Reabrir':'Marcar como paga'}" aria-label="${d.pago?'Reabrir':'Marcar como paga'}">
+            ${d.pago ? iconUndo() : iconCheck()}
+          </button>
+          <button data-action="edit-expense" data-id="${d.id}" title="Editar" aria-label="Editar">${iconPencil()}</button>
+          <button class="del" data-action="delete-expense" data-id="${d.id}" title="Excluir" aria-label="Excluir">${iconTrash()}</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  /* ---------------- modal ---------------- */
+  function closeModalDom(){
+    const existing = document.querySelector(".modal-overlay");
+    if(existing) existing.remove();
+  }
+
+  function renderModal(){
+    closeModalDom();
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.dataset.action = "modal-overlay";
+    overlay.innerHTML = `<div class="modal" role="dialog" aria-modal="true">${modalContent()}</div>`;
+    document.body.appendChild(overlay);
+    const firstInput = overlay.querySelector("input, select, button.btn-primary");
+    if(firstInput) firstInput.focus();
+  }
+
+  function modalContent(){
+    if(modal.type === "settings"){
+      return `
+        <h3>Configurações</h3>
+        <div class="settings-block">
+          <h4>Nomes do casal</h4>
+          <div class="field-grid">
+            ${state.perfis.map(p => `
+              <div class="field">
+                <label>${p.id === 'p1' ? 'Pessoa 1' : 'Pessoa 2'}</label>
+                <input type="text" maxlength="20" data-profile-name="${p.id}" value="${esc(p.nome)}">
+              </div>`).join("")}
+          </div>
+        </div>
+        <div class="settings-block">
+          <h4>Dados</h4>
+          <button type="button" class="btn btn-danger btn-sm" data-action="confirm-reset">${iconTrash()} Apagar todos os dados</button>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-text" data-action="close-modal">Fechar</button>
+          <button type="button" class="btn btn-primary" data-action="save-settings">Salvar</button>
+        </div>`;
+    }
+    if(modal.type === "edit-saldo"){
+      return `
+        <h3>Ajustar saldo</h3>
+        <div class="field">
+          <label for="m-saldo">Saldo atual em conta</label>
+          <div class="money-input">
+            <span>R$</span>
+            <input type="number" id="m-saldo" step="0.01" value="${state.saldo}" autofocus>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-text" data-action="close-modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" data-action="save-saldo">Salvar</button>
+        </div>`;
+    }
+    if(modal.type === "edit-expense"){
+      const d = state.despesas.find(x => x.id === modal.payload);
+      if(!d) return "";
+      const catOptions = CATEGORIAS.map(c => `<option value="${c.id}" ${c.id===d.categoria?'selected':''}>${c.nome}</option>`).join("");
+      const profileChips = state.perfis.map(p => `
+        <button type="button" class="chip-person ${p.id===d.adicionadoPor?'active':''}" data-profile="${p.id}">
+          <span class="dot" style="background:${p.cor}"></span>${esc(p.nome)}
+        </button>`).join("");
+      return `
+        <h3>Editar despesa</h3>
+        <div class="field-grid">
+          <div class="field full">
+            <label for="m-desc">Descrição</label>
+            <input type="text" id="m-desc" value="${esc(d.descricao)}" maxlength="80">
+          </div>
+          <div class="field">
+            <label for="m-valor">Valor</label>
+            <div class="money-input"><span>R$</span><input type="number" id="m-valor" step="0.01" min="0.01" value="${d.valor}"></div>
+          </div>
+          <div class="field">
+            <label for="m-venc">Vencimento</label>
+            <input type="date" id="m-venc" value="${d.vencimento}">
+          </div>
+          <div class="field full">
+            <label for="m-cat">Categoria</label>
+            <select id="m-cat">${catOptions}</select>
+          </div>
+          <div class="field full">
+            <label>Quem lançou</label>
+            <div class="chip-toggle" id="editPersonToggle">${profileChips}</div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-text" data-action="close-modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" data-action="save-expense-edit" data-id="${d.id}">Salvar alterações</button>
+        </div>`;
+    }
+    if(modal.type === "confirm-delete"){
+      const d = state.despesas.find(x => x.id === modal.payload);
+      if(!d) return "";
+      return `
+        <h3>Excluir despesa</h3>
+        <p class="modal-warn">Tem certeza que deseja excluir <strong>${esc(d.descricao)}</strong> (${fmtMoney(d.valor)})?
+        ${d.pago ? " O valor será devolvido ao saldo atual." : ""}</p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-text" data-action="close-modal">Cancelar</button>
+          <button type="button" class="btn btn-danger" data-action="do-delete" data-id="${d.id}">Excluir</button>
+        </div>`;
+    }
+    if(modal.type === "confirm-reset"){
+      return `
+        <h3>Apagar todos os dados</h3>
+        <p class="modal-warn">Isso vai remover todas as despesas e zerar o saldo. Essa ação não pode ser desfeita.</p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-text" data-action="close-modal">Cancelar</button>
+          <button type="button" class="btn btn-danger" data-action="do-reset">Apagar tudo</button>
+        </div>`;
+    }
+    return "";
+  }
+
+  /* ---------------- icons ---------------- */
+  function iconPlus(){ return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>`; }
+  function iconPencil(){ return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`; }
+  function iconTrash(){ return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16z"/></svg>`; }
+  function iconCheck(){ return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`; }
+  function iconUndo(){ return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 7"/></svg>`; }
+  function iconGear(){ return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`; }
+  function iconLedger(){ return `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 7h7M9 11h7"/></svg>`; }
+
+  /* ---------------- actions ---------------- */
+  function addExpense(form){
+    const fd = new FormData(form);
+    const descricao = (fd.get("descricao") || "").toString().trim();
+    const valor = parseFloat(fd.get("valor"));
+    const vencimento = fd.get("vencimento");
+    const categoriaId = fd.get("categoria");
+    const jaPaga = !!fd.get("jaPaga");
+    const dataPagamento = jaPaga ? (fd.get("dataPagamento") || todayISO()) : null;
+    const adicionadoPor = form.querySelector(".chip-person.active")?.dataset.profile || state.perfis[0].id;
+
+    if(!descricao || !valor || valor <= 0 || !vencimento) return;
+
+    const despesa = {
+      id: uid(),
+      descricao, valor, vencimento,
+      categoria: categoriaId,
+      pago: jaPaga,
+      dataPagamento,
+      adicionadoPor
+    };
+    state.despesas.push(despesa);
+    if(jaPaga) state.saldo -= valor;
+
+    formOpen = false;
+    saveState();
+    render();
+  }
+
+  function togglePaid(id){
+    const d = state.despesas.find(x => x.id === id);
+    if(!d) return;
+    if(d.pago){
+      d.pago = false;
+      d.dataPagamento = null;
+      state.saldo += d.valor;
+    }else{
+      d.pago = true;
+      d.dataPagamento = todayISO();
+      state.saldo -= d.valor;
+    }
+    saveState();
+    render();
+  }
+
+  function saveExpenseEdit(id, overlay){
+    const d = state.despesas.find(x => x.id === id);
+    if(!d) return;
+    const newDesc = overlay.querySelector("#m-desc").value.trim();
+    const newValor = parseFloat(overlay.querySelector("#m-valor").value);
+    const newVenc = overlay.querySelector("#m-venc").value;
+    const newCat = overlay.querySelector("#m-cat").value;
+    const newPerson = overlay.querySelector("#editPersonToggle .chip-person.active")?.dataset.profile || d.adicionadoPor;
+    if(!newDesc || !newValor || newValor <= 0 || !newVenc) return;
+
+    if(d.pago) state.saldo += d.valor - newValor;
+
+    d.descricao = newDesc;
+    d.valor = newValor;
+    d.vencimento = newVenc;
+    d.categoria = newCat;
+    d.adicionadoPor = newPerson;
+
+    modal = null;
+    saveState();
+    render();
+  }
+
+  function deleteExpense(id){
+    const idx = state.despesas.findIndex(x => x.id === id);
+    if(idx === -1) return;
+    const d = state.despesas[idx];
+    if(d.pago) state.saldo += d.valor;
+    state.despesas.splice(idx, 1);
+    modal = null;
+    saveState();
+    render();
+  }
+
+  function saveSaldo(value){
+    const v = parseFloat(value);
+    if(isNaN(v)) return;
+    state.saldo = v;
+    modal = null;
+    saveState();
+    render();
+  }
+
+  function saveSettings(overlay){
+    overlay.querySelectorAll("[data-profile-name]").forEach(inp => {
+      const id = inp.dataset.profileName;
+      const p = perfil(id);
+      const v = inp.value.trim();
+      if(v) p.nome = v;
+    });
+    modal = null;
+    saveState();
+    render();
+  }
+
+  function resetAll(){
+    state.saldo = 0;
+    state.despesas = [];
+    modal = null;
+    saveState();
+    render();
+  }
+
+  /* ---------------- events ---------------- */
+  document.body.addEventListener("click", function(e){
+    const overlayClick = e.target.classList && e.target.classList.contains("modal-overlay");
+    if(overlayClick){ modal = null; render(); return; }
+
+    const btn = e.target.closest("[data-action]");
+    if(!btn) return;
+    const action = btn.dataset.action;
+
+    if(action === "toggle-form"){ formOpen = !formOpen; render(); return; }
+    if(action === "set-filter"){ activeFilter = btn.dataset.filter; render(); return; }
+    if(action === "open-settings"){ modal = { type: "settings" }; render(); return; }
+    if(action === "edit-saldo"){ modal = { type: "edit-saldo" }; render(); return; }
+    if(action === "edit-expense"){ modal = { type: "edit-expense", payload: btn.dataset.id }; render(); return; }
+    if(action === "delete-expense"){ modal = { type: "confirm-delete", payload: btn.dataset.id }; render(); return; }
+    if(action === "confirm-reset"){ modal = { type: "confirm-reset" }; render(); return; }
+    if(action === "close-modal"){ modal = null; render(); return; }
+    if(action === "toggle-paid"){ togglePaid(btn.dataset.id); return; }
+
+    if(action === "save-saldo"){
+      const overlay = document.querySelector(".modal-overlay");
+      saveSaldo(overlay.querySelector("#m-saldo").value);
+      return;
+    }
+    if(action === "save-settings"){
+      saveSettings(document.querySelector(".modal-overlay"));
+      return;
+    }
+    if(action === "save-expense-edit"){
+      saveExpenseEdit(btn.dataset.id, document.querySelector(".modal-overlay"));
+      return;
+    }
+    if(action === "do-delete"){ deleteExpense(btn.dataset.id); return; }
+    if(action === "do-reset"){ resetAll(); return; }
+
+    // person chip toggles (inside add form or edit modal)
+    if(btn.classList.contains("chip-person")){
+      btn.parentElement.querySelectorAll(".chip-person").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      return;
+    }
+  });
+
+  document.body.addEventListener("change", function(e){
+    if(e.target.id === "f-jaPaga"){
+      const field = document.getElementById("paidDateField");
+      if(field) field.hidden = !e.target.checked;
+    }
+  });
+
+  document.body.addEventListener("submit", function(e){
+    if(e.target.id === "expenseForm"){
+      e.preventDefault();
+      addExpense(e.target);
+    }
+  });
+
+  document.body.addEventListener("keydown", function(e){
+    if(e.key === "Escape" && modal){ modal = null; render(); }
+  });
+
+  /* ---------------- init ---------------- */
+  loadState();
+})();
+</script>
 </body>
-
 </html>
