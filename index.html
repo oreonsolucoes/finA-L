@@ -177,19 +177,6 @@
   }
   .pencil-btn:hover{ color: var(--teal); background: var(--teal-soft); }
 
-  .saldo-edit-form{
-    display: flex; gap: 8px; align-items: center; margin-top: 4px;
-  }
-  .saldo-edit-form input{
-    width: 130px;
-    font-family: var(--font-mono);
-    font-size: 18px;
-    padding: 4px 8px;
-    border: 1px solid var(--teal);
-    border-radius: 8px;
-    background: #fff;
-  }
-
   /* ---------- Buttons ---------- */
   .btn{
     border: none;
@@ -427,11 +414,30 @@
 
 <div id="toast"></div>
 
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
 <script>
 (function(){
   "use strict";
 
-  const STORAGE_KEY = "orcamento-casal-v1";
+  // URL do seu Webhook de Produção do n8n (Insira o link gerado pelo nó do Webhook do n8n)
+  const N8N_WEBHOOK_URL = "SUA_URL_DO_WEBHOOK_AQUI";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyC8hKLZ_pKHJ7DlS6OqvDvqzPk9FN3-8OM",
+    authDomain: "financas-ael.firebaseapp.com",
+    databaseURL: "https://financas-ael-default-rtdb.firebaseio.com",
+    projectId: "financas-ael",
+    storageBucket: "financas-ael.firebasestorage.app",
+    messagingSenderId: "928624497972",
+    appId: "1:928624497972:web:7204275e84d1ac40e84161"
+  };
+
+  // Inicializando o Firebase Realtime Database
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
   const CATEGORIAS = [
     { id: "moradia",     nome: "Moradia",     cor: "var(--teal)",   soft: "var(--teal-soft)" },
     { id: "mercado",     nome: "Mercado",     cor: "var(--ochre)",  soft: "var(--ochre-soft)" },
@@ -456,32 +462,57 @@
   let loaded = false;
   let activeFilter = "todas";
   let formOpen = false;
-  let modal = null; // { type, payload }
+  let modal = null; 
 
   const app = document.getElementById("app");
   const toastEl = document.getElementById("toast");
 
-  /* ---------------- storage ---------------- */
-  async function loadState(){
-    try{
-      const res = await window.storage.get(STORAGE_KEY, true);
-      if(res && res.value){
-        const parsed = JSON.parse(res.value);
-        state = Object.assign(defaultState(), parsed);
-      }
-    }catch(e){
-      // no data yet, keep defaults
+  /* ---------------- n8n Webhook Trigger ---------------- */
+  async function dispararWebhookN8N(acao, item) {
+    if(!N8N_WEBHOOK_URL || N8N_WEBHOOK_URL.includes("SUA_URL_DO_WEBHOOK")) return;
+    try {
+      await fetch(N8N_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acao: acao, dados: item, timestamp: new Date().toISOString() })
+      });
+    } catch (e) {
+      console.error("Erro ao enviar dados para o n8n:", e);
     }
-    loaded = true;
-    render();
+  }
+
+  /* ---------------- storage (Firebase) ---------------- */
+  function loadState(){
+    db.ref("estado_orcamento").on("value", (snapshot) => {
+      const data = snapshot.val();
+      if(data) {
+        state.saldo = data.saldo || 0;
+        state.perfis = data.perfis || defaultState().perfis;
+        // Firebase não salva arrays vazios e converte em objetos indexados se existirem lacunas
+        if (data.despesas) {
+          state.despesas = Object.values(data.despesas);
+        } else {
+          state.despesas = [];
+        }
+      } else {
+        state = defaultState();
+      }
+      loaded = true;
+      render();
+    }, (error) => {
+      showToast("Erro ao carregar dados do Firebase.");
+    });
   }
 
   async function saveState(){
     try{
-      const res = await window.storage.set(STORAGE_KEY, JSON.stringify(state), true);
-      if(!res) showToast("Não foi possível salvar agora. Tente novamente.");
+      await db.ref("estado_orcamento").set({
+        saldo: state.saldo,
+        perfis: state.perfis,
+        despesas: state.despesas
+      });
     }catch(e){
-      showToast("Não foi possível salvar agora. Tente novamente.");
+      showToast("Não foi possível sincronizar com o banco de dados.");
     }
   }
 
@@ -894,7 +925,7 @@
 
     formOpen = false;
     saveState();
-    render();
+    dispararWebhookN8N("criar_despesa", despesa);
   }
 
   function togglePaid(id){
@@ -910,7 +941,7 @@
       state.saldo -= d.valor;
     }
     saveState();
-    render();
+    dispararWebhookN8N("status_pagamento_alterado", d);
   }
 
   function saveExpenseEdit(id, overlay){
@@ -933,7 +964,7 @@
 
     modal = null;
     saveState();
-    render();
+    dispararWebhookN8N("editar_despesa", d);
   }
 
   function deleteExpense(id){
@@ -944,7 +975,7 @@
     state.despesas.splice(idx, 1);
     modal = null;
     saveState();
-    render();
+    dispararWebhookN8N("excluir_despesa", d);
   }
 
   function saveSaldo(value){
@@ -953,7 +984,7 @@
     state.saldo = v;
     modal = null;
     saveState();
-    render();
+    dispararWebhookN8N("saldo_atualizado", { saldo: v });
   }
 
   function saveSettings(overlay){
@@ -965,7 +996,6 @@
     });
     modal = null;
     saveState();
-    render();
   }
 
   function resetAll(){
@@ -973,7 +1003,7 @@
     state.despesas = [];
     modal = null;
     saveState();
-    render();
+    dispararWebhookN8N("limpar_banco", {});
   }
 
   /* ---------------- events ---------------- */
@@ -1011,7 +1041,6 @@
     if(action === "do-delete"){ deleteExpense(btn.dataset.id); return; }
     if(action === "do-reset"){ resetAll(); return; }
 
-    // person chip toggles (inside add form or edit modal)
     if(btn.classList.contains("chip-person")){
       btn.parentElement.querySelectorAll(".chip-person").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
