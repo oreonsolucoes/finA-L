@@ -16,7 +16,7 @@ const N8N_CONFIG = {
  */
 async function dispararWebhookN8N(acao, dados) {
   // Valida se a URL padrão foi alterada
-  if (!N8N_CONFIG.webhookUrl || N8N_CONFIG.webhookUrl.includes("SUA_URL_AQUI")) {
+  if (!N8N_CONFIG.webhookUrl || N8N_CONFIG.webhookUrl.includes("https://n8n.oreonsolucoes.dpdns.org/webhook/84f4df30-a603-4a33-999e-fbb2eb42b0e8")) {
     if (N8N_CONFIG.debug) console.warn("⚠️ n8n: URL do webhook não configurada corretamente.");
     return;
   }
