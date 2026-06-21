@@ -7,7 +7,16 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,900;1,9..144,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+
+<script src="n8n-sender.js"></script>
+
+<script>
+  // Aqui dentro você não precisa mais declarar a constante da URL nem a função dispararWebhookN8N.
+  // Pode só chamar direto de dentro das suas funções (como a addExpense):
+  // dispararWebhookN8N("criar_despesa", despesa);
+</script>
+  <style>
   :root{
     --paper: #EEF1EC;
     --paper-deep: #E4E9E2;
