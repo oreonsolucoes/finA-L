@@ -469,7 +469,7 @@
 
   /* ---------------- n8n Webhook Trigger ---------------- */
   async function dispararWebhookN8N(acao, item) {
-    if(!N8N_WEBHOOK_URL || N8N_WEBHOOK_URL.includes("https://n8n.oreonsolucoes.dpdns.org/webhook-test/84f4df30-a603-4a33-999e-fbb2eb42b0e8")) return;
+    if(!N8N_WEBHOOK_URL || N8N_WEBHOOK_URL.includes("https://n8n.oreonsolucoes.dpdns.org/webhook/84f4df30-a603-4a33-999e-fbb2eb42b0e8")) return;
     try {
       await fetch(N8N_WEBHOOK_URL, {
         method: "POST",
