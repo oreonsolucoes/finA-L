@@ -8,15 +8,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,900;1,9..144,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 
-<script src="n8n-sender.js"></script>
-
-<script>
-  // Aqui dentro você não precisa mais declarar a constante da URL nem a função dispararWebhookN8N.
-  // Pode só chamar direto de dentro das suas funções (como a addExpense):
-  // dispararWebhookN8N("criar_despesa", despesa);
-</script>
-  <style>
+<style>
   :root{
     --paper: #EEF1EC;
     --paper-deep: #E4E9E2;
@@ -256,7 +250,7 @@
   .money-input input{ padding-left: 32px; }
 
   .chip-toggle{ display: flex; gap: 8px; }
-  .chip-toggle button{
+  .chip-toggle .chip-person {
     flex: 1;
     border: 1.5px solid var(--rule);
     background: #fff;
@@ -266,8 +260,8 @@
     color: var(--ink-soft);
     display: flex; align-items: center; gap: 6px; justify-content: center;
   }
-  .chip-toggle button .dot{ width: 8px; height: 8px; border-radius: 50%; }
-  .chip-toggle button.active{ border-color: var(--teal); color: var(--teal); background: var(--teal-soft); }
+  .chip-toggle .chip-person .dot{ width: 8px; height: 8px; border-radius: 50%; }
+  .chip-toggle .chip-person.active{ border-color: var(--teal); color: var(--teal); background: var(--teal-soft); }
 
   .checkbox-row{
     display: flex; align-items: center; gap: 8px;
@@ -423,14 +417,41 @@
 
 <div id="toast"></div>
 
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-
 <script>
 (function(){
   "use strict";
-  const dispararWebhookN8N = window.dispararWebhookN8N;
 
+  // -------------------------------------------------------------------------
+  // CONFIGURAÇÃO DO WEBHOOK DO N8N (Unificada e livre dentro do escopo do app)
+  // -------------------------------------------------------------------------
+  const N8N_WEBHOOK_URL = "https://n8n.oreonsolucoes.dpdns.org/webhook/84f4df30-a603-4a33-999e-fbb2eb42b0e8";
+  
+  async function dispararWebhookN8N(acao, dados) {
+    if (!N8N_WEBHOOK_URL) return;
+    
+    console.log(`🚀 n8n: Tentando disparar ação [${acao}]`, dados);
+    
+    try {
+      const resposta = await fetch(N8N_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          acao: acao,
+          dados: dados,
+          timestamp: new Date().toISOString()
+        })
+      });
+      
+      if (resposta.ok) {
+        console.log("✅ n8n: Enviado com sucesso!");
+      } else {
+        console.error(`❌ n8n: Servidor retornou status ${resposta.status}`);
+      }
+    } catch (e) {
+      console.error("❌ n8n: Erro ao enviar requisição fetch:", e);
+    }
+  }
+  // -------------------------------------------------------------------------
 
   const firebaseConfig = {
     apiKey: "AIzaSyC8hKLZ_pKHJ7DlS6OqvDvqzPk9FN3-8OM",
@@ -442,7 +463,6 @@
     appId: "1:928624497972:web:7204275e84d1ac40e84161"
   };
 
-  // Inicializando o Firebase Realtime Database
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
@@ -475,8 +495,6 @@
   const app = document.getElementById("app");
   const toastEl = document.getElementById("toast");
 
- 
-
   /* ---------------- storage (Firebase) ---------------- */
   function loadState(){
     db.ref("estado_orcamento").on("value", (snapshot) => {
@@ -484,7 +502,6 @@
       if(data) {
         state.saldo = data.saldo || 0;
         state.perfis = data.perfis || defaultState().perfis;
-        // Firebase não salva arrays vazios e converte em objetos indexados se existirem lacunas
         if (data.despesas) {
           state.despesas = Object.values(data.despesas);
         } else {
@@ -1062,7 +1079,6 @@
     if(e.key === "Escape" && modal){ modal = null; render(); }
   });
 
-  /* ---------------- init ---------------- */
   loadState();
 })();
 </script>
