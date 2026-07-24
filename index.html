@@ -456,6 +456,41 @@ button{cursor:pointer;}
 .split{display:flex; gap:7px;}
 .split .pill{flex:1; justify-content:center;}
 
+.parcela-row{display:flex; gap:9px; align-items:center; flex-wrap:wrap;}
+.stepper{
+  display:inline-flex; align-items:center; gap:2px;
+  border:1px solid var(--rule); border-radius:9px; background:var(--paper);
+  padding:3px; flex-shrink:0;
+}
+.stepper button{
+  width:30px; height:30px; border-radius:7px; border:none; background:none;
+  color:var(--ink-2); font-size:17px; font-weight:600; line-height:1;
+  display:grid; place-items:center; transition:background .15s, color .15s;
+}
+.stepper button:hover:not(:disabled){background:var(--accent-soft); color:var(--accent);}
+.stepper button:disabled{opacity:.3; cursor:default;}
+.stepper input{
+  width:46px !important; border:none !important; background:none !important;
+  text-align:right; padding:0 1px 0 0 !important;
+  font-family:var(--mono); font-size:16px !important; font-weight:600;
+  color:var(--ink); -moz-appearance:textfield;
+}
+.stepper input::-webkit-outer-spin-button,
+.stepper input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
+.stepper input:focus{outline:none;}
+.stepper-x{
+  font-family:var(--mono); font-size:14px; color:var(--ink-3);
+  padding-right:6px; user-select:none;
+}
+.parcela-row .split{flex:1; min-width:210px;}
+.parcela-row .split .pill{font-size:11.5px; padding:7px 8px;}
+
+.parc-badge{
+  font-family:var(--mono); font-size:10px; font-weight:600;
+  padding:2px 6px; border-radius:5px; white-space:nowrap;
+  background:var(--warn-soft); color:var(--warn);
+}
+
 .check{
   display:flex; align-items:center; gap:10px; grid-column:1/-1;
   padding:11px 12px; border:1px solid var(--rule); border-radius:9px;
@@ -701,6 +736,25 @@ function labelMes(ym){
   return { nome: MESES[m-1], ano: y };
 }
 function cat(id){ return CATEGORIAS.find(c=>c.id===id) || CATEGORIAS[CATEGORIAS.length-1]; }
+
+/* Divide um total em N parcelas de centavos inteiros.
+   A sobra vai nas primeiras, como fazem as operadoras de cartão,
+   para que a soma feche exatamente com o total. */
+function dividirParcelas(total, n){
+  const cent  = Math.round((Number(total)||0) * 100);
+  const base  = Math.floor(cent / n);
+  const sobra = cent - base * n;
+  return Array.from({length:n}, (_,i) => (base + (i < sobra ? 1 : 0)) / 100);
+}
+
+/* Data da i-ésima parcela, preservando o dia e respeitando meses curtos. */
+function dataParcela(vencInicial, i){
+  const ym  = addMes(vencInicial.slice(0,7), i);
+  const dia = Number(vencInicial.slice(8,10)) || 1;
+  const [y,mo] = ym.split("-").map(Number);
+  const ultimo = new Date(y, mo, 0).getDate();
+  return `${ym}-${String(Math.min(dia, ultimo)).padStart(2,"0")}`;
+}
 function pessoa(id){ return S.perfis.find(p=>p.id===id) || S.perfis[0] || {id:"?",nome:"?",cor:"#888"}; }
 function inicial(nome){ return (nome||"?").trim().charAt(0).toUpperCase(); }
 
@@ -1144,6 +1198,7 @@ function linha(d){
   const dias = late ? diasDe(d.vencimento) : 0;
 
   const meta = [`<span class="tag" style="background:color-mix(in srgb, ${c.cor} 13%, transparent); color:${c.cor}">${esc(c.nome)}</span>`];
+  if(d.parcelas > 1) meta.push(`<span class="parc-badge">${d.parcela}/${d.parcelas}</span>`);
   if(d.divisao === "individual") meta.push(`<span>só ${esc(pessoa(d.adicionadoPor).nome)}</span>`);
   if(d.origem || d.recorrente) meta.push(`<span class="recur-icon" title="Recorrente">${icRepeat()}</span>`);
   if(late) meta.push(`<span class="late-flag">${dias}d em atraso</span>`);
@@ -1281,6 +1336,55 @@ function montarModal(){
     if(bloco) bloco.hidden = !chk.checked;
   });
 
+  // resumo do parcelamento, ao vivo
+  const nParc = scrim.querySelector("#f-parcelas");
+  if(nParc){
+    scrim.addEventListener("input", atualizarParcelas);
+    scrim.addEventListener("click", e => {
+      if(e.target.closest("[data-pill='basevalor']")) setTimeout(atualizarParcelas, 0);
+    });
+    atualizarParcelas();
+  }
+  function atualizarParcelas(){
+    const scope = scrim;
+    const n     = Math.max(1, Math.min(72, parseInt(scope.querySelector("#f-parcelas").value) || 1));
+    const valor = parseFloat(scope.querySelector("#f-valor").value) || 0;
+    const venc  = scope.querySelector("#f-venc").value;
+    const base  = lerPill(scope, "basevalor", "parcela");
+
+    const blocoBase = scope.querySelector("#pill-basevalor");
+    const resumo    = scope.querySelector("#parcelaResumo");
+    const labelRec  = scope.querySelector("#labelRecorrente");
+    const chkRec    = scope.querySelector("#f-recorrente");
+    const menos     = scope.querySelector("[data-act='parc-menos']");
+
+    if(menos) menos.disabled = n <= 1;
+
+    const parcelado = n > 1;
+    if(blocoBase) blocoBase.hidden = !parcelado;
+
+    // parcelado e "repete todo mês" são mutuamente exclusivos
+    if(labelRec && chkRec){
+      labelRec.style.opacity = parcelado ? ".45" : "";
+      labelRec.style.pointerEvents = parcelado ? "none" : "";
+      chkRec.disabled = parcelado;
+      if(parcelado) chkRec.checked = false;
+    }
+
+    if(!resumo) return;
+    if(!parcelado || !valor || !venc){ resumo.hidden = true; return; }
+
+    const total = base === "total" ? valor : valor * n;
+    const vals  = dividirParcelas(total, n);
+    const iguais = vals.every(v => v === vals[0]);
+    const ultima = dataParcela(venc, n-1);
+
+    resumo.hidden = false;
+    resumo.innerHTML = iguais
+      ? `${n}x de <b>${money(vals[0])}</b> · total ${money(total)} · última em ${fmtData(ultima)}`
+      : `${n}x · primeira de <b>${money(vals[0])}</b>, demais de ${money(vals[n-1])} · total ${money(total)} · última em ${fmtData(ultima)}`;
+  }
+
   scrim.addEventListener("keydown", e => {
     if(e.key === "Escape"){ S.modal = null; render(); }
     if(e.key === "Enter" && e.target.tagName === "INPUT" && e.target.type !== "checkbox"){
@@ -1325,9 +1429,27 @@ function conteudoModal(){
           </div>
         </div>
         <div class="f">
-          <label for="f-venc">Vencimento</label>
+          <label for="f-venc">${"Vencimento"}</label>
           <input type="date" id="f-venc" value="${diaSug}">
         </div>
+
+        <div class="f wide">
+          <label for="f-parcelas">Parcelas</label>
+          <div class="parcela-row">
+            <div class="stepper">
+              <button type="button" data-act="parc-menos" aria-label="Menos uma parcela">−</button>
+              <input type="number" id="f-parcelas" min="1" max="72" step="1" value="1" inputmode="numeric">
+              <span class="stepper-x">x</span>
+              <button type="button" data-act="parc-mais" aria-label="Mais uma parcela">+</button>
+            </div>
+            <div class="split" id="pill-basevalor" hidden>
+              <button type="button" class="pill on" data-pill="basevalor" data-val="parcela" style="color:var(--accent)">valor da parcela</button>
+              <button type="button" class="pill" data-pill="basevalor" data-val="total">valor total</button>
+            </div>
+          </div>
+          <span class="hint" id="parcelaResumo" hidden></span>
+        </div>
+
         <div class="f wide">
           <label for="f-cat">Categoria</label>
           <select id="f-cat">${cats}</select>
@@ -1345,10 +1467,10 @@ function conteudoModal(){
           <span class="hint">Só as divididas entram no acerto de contas do mês.</span>
         </div>
 
-        <label class="check" for="f-recorrente">
+        <label class="check" for="f-recorrente" id="labelRecorrente">
           <input type="checkbox" id="f-recorrente">
           <span><span class="lbl">Repete todo mês</span>
-          <span class="sub">Aparece sozinha nos meses seguintes</span></span>
+          <span class="sub">Sem data para acabar, tipo aluguel ou internet</span></span>
         </label>
 
         <label class="check" for="f-jaPaga">
@@ -1422,15 +1544,33 @@ function conteudoModal(){
     const d = S.despesas.find(x=>x.id===m.id);
     if(!d) return "";
     const ehModelo = !!d.recorrente;
+    const ehParcela = d.parcelas > 1;
+
+    let infoParc = "";
+    if(ehParcela){
+      const grupo = S.despesas.filter(x=>x.grupo===d.grupo);
+      const pagas = grupo.filter(x=>x.pago).length;
+      const total = grupo.reduce((s,x)=>s+(Number(x.valor)||0),0);
+      const falta = grupo.filter(x=>!x.pago).reduce((s,x)=>s+(Number(x.valor)||0),0);
+      infoParc = `
+      <div style="padding:2px 12px 12px;">
+        <p class="lc-note" style="margin:0;">
+          Parcela <b>${d.parcela} de ${d.parcelas}</b> · ${pagas} paga${pagas===1?"":"s"}<br>
+          Total ${money(total)} · faltam <b>${money(falta)}</b>
+        </p>
+      </div>`;
+    }
+
     return `
     <div class="sheet-head"><h3>${esc(d.descricao)}</h3>
       <button class="iconbtn" data-act="fechar" aria-label="Fechar">${icX()}</button></div>
     <div class="sheet-body" style="padding:10px 12px;">
-      <button class="menu-item" data-act="editar" data-id="${esc(d.id)}">${icPencil()} Editar despesa</button>
+      ${infoParc}
+      <button class="menu-item" data-act="editar" data-id="${esc(d.id)}">${icPencil()} Editar ${ehParcela?"esta parcela":"despesa"}</button>
       <button class="menu-item" data-act="duplicar" data-id="${esc(d.id)}">${icCopy()} Duplicar</button>
-      ${ehModelo
+      ${ehParcela ? "" : (ehModelo
         ? `<button class="menu-item" data-act="parar-recorrencia" data-id="${esc(d.id)}">${icRepeat()} Parar de repetir todo mês</button>`
-        : `<button class="menu-item" data-act="tornar-recorrente" data-id="${esc(d.id)}">${icRepeat()} Repetir todo mês</button>`}
+        : `<button class="menu-item" data-act="tornar-recorrente" data-id="${esc(d.id)}">${icRepeat()} Repetir todo mês</button>`)}
       <button class="menu-item danger" data-act="confirmar-excluir" data-id="${esc(d.id)}">${icTrash()} Excluir</button>
     </div>`;
   }
@@ -1493,6 +1633,31 @@ function conteudoModal(){
   if(m.tipo === "excluir"){
     const d = S.despesas.find(x=>x.id===m.id);
     if(!d) return "";
+    const grupo = d.grupo ? S.despesas.filter(x=>x.grupo===d.grupo) : [];
+    const restantes = grupo.filter(x=>!x.pago);
+
+    if(grupo.length > 1){
+      const totalRest = restantes.reduce((s,x)=>s+(Number(x.valor)||0),0);
+      return `
+      <div class="sheet-head"><h3>Excluir parcela</h3></div>
+      <div class="sheet-body">
+        <p class="warnbox"><b>${esc(d.descricao)}</b> é a parcela ${d.parcela} de ${d.parcelas}.
+        O que você quer excluir?</p>
+        <div style="margin-top:12px;">
+          <button class="menu-item" data-act="excluir" data-id="${esc(d.id)}">
+            ${icTrash()} Só esta parcela (${money(d.valor)})
+          </button>
+          <button class="menu-item danger" data-act="excluir-grupo" data-grupo="${esc(d.grupo)}">
+            ${icTrash()} As ${restantes.length} parcelas em aberto (${money(totalRest)})
+          </button>
+        </div>
+        <p class="hint" style="margin-top:10px;">Parcelas já pagas nunca são removidas — elas fazem parte do histórico do saldo.</p>
+      </div>
+      <div class="sheet-foot">
+        <button class="btn btn-text" data-act="fechar">Cancelar</button>
+      </div>`;
+    }
+
     return `
     <div class="sheet-head"><h3>Excluir despesa</h3></div>
     <div class="sheet-body">
@@ -1540,11 +1705,57 @@ async function salvarNova(scope){
   const dtPag = paga ? (scope.querySelector("#f-dataPag").value || hojeISO()) : null;
   const quem  = lerPill(scope,"pessoa", S.perfis[0].id);
   const divi  = lerPill(scope,"divisao","casal");
+  const nParc = Math.max(1, Math.min(72, parseInt(scope.querySelector("#f-parcelas").value) || 1));
+  const base  = lerPill(scope,"basevalor","parcela");
 
   if(!desc){ say("Dê um nome à despesa.", true); return; }
   if(!valor || valor <= 0){ say("Informe um valor maior que zero.", true); return; }
   if(!venc){ say("Escolha a data de vencimento.", true); return; }
 
+  /* ---------- parcelado ---------- */
+  if(nParc > 1){
+    const total = base === "total" ? valor : valor * nParc;
+    const vals  = dividirParcelas(total, nParc);
+    const grupo = uid();
+    const lote  = {};
+
+    for(let i = 0; i < nParc; i++){
+      const paga1 = paga && i === 0;   // "já paga" vale só para a primeira
+      lote[uid()] = {
+        descricao: desc,
+        valor: vals[i],
+        vencimento: dataParcela(venc, i),
+        categoria: cate,
+        divisao: divi,
+        adicionadoPor: quem,
+        pago: paga1,
+        dataPagamento: paga1 ? dtPag : null,
+        pagoPor: paga1 ? quem : null,
+        recorrente: false,
+        origem: null,
+        grupo: grupo,
+        parcela: i + 1,
+        parcelas: nParc,
+        criadoEm: new Date().toISOString()
+      };
+    }
+
+    S.modal = null;
+    S.mesAtivo = venc.slice(0,7);
+    try{ await refLivro().child("despesas").update(lote); }
+    catch(e){ say("Não foi possível salvar as parcelas.", true); render(); return; }
+
+    avisarN8N("criar_despesa_parcelada", {
+      descricao: desc, total, parcelas: nParc,
+      primeiroVencimento: venc, ultimoVencimento: dataParcela(venc, nParc-1),
+      categoria: cate, divisao: divi, adicionadoPor: quem, grupo: grupo
+    });
+    say(`${nParc} parcelas lançadas até ${fmtData(dataParcela(venc, nParc-1))}.`);
+    render();
+    return;
+  }
+
+  /* ---------- despesa única ---------- */
   const id = uid();
   const d = {
     descricao:desc, valor, vencimento:venc, categoria:cate,
@@ -1610,6 +1821,7 @@ async function duplicar(id){
   const novo = Object.assign({}, d, {
     pago:false, dataPagamento:null, pagoPor:null,
     recorrente:false, origem:null,
+    grupo:null, parcela:null, parcelas:null,
     descricao: d.descricao,
     criadoEm:new Date().toISOString()
   });
@@ -1632,6 +1844,21 @@ async function excluir(id){
   await apagarDespesa(id);
   if(d) avisarN8N("excluir_despesa", Object.assign({id}, d));
   say("Despesa excluída.");
+  render();
+}
+
+async function excluirGrupo(grupo){
+  const alvo = S.despesas.filter(d => d.grupo === grupo && !d.pago);
+  S.modal = null;
+  if(!alvo.length){ say("Nada a excluir.", true); render(); return; }
+
+  const lote = {};
+  alvo.forEach(d => lote[d.id] = null);   // null remove a chave
+  try{
+    await refLivro().child("despesas").update(lote);
+    avisarN8N("excluir_parcelas", { grupo, quantidade: alvo.length });
+    say(`${alvo.length} parcela${alvo.length>1?"s":""} em aberto excluída${alvo.length>1?"s":""}.`);
+  }catch(e){ say("Não foi possível excluir as parcelas.", true); }
   render();
 }
 
@@ -1723,7 +1950,17 @@ document.addEventListener("click", e => {
     case "tornar-recorrente": alternarRecorrencia(id, true); break;
     case "parar-recorrencia": alternarRecorrencia(id, false); break;
     case "excluir":  excluir(id); break;
+    case "excluir-grupo": excluirGrupo(alvo.dataset.grupo); break;
     case "limpar":   limparTudo(); break;
+
+    case "parc-menos":
+    case "parc-mais": {
+      const inp = alvo.closest(".stepper").querySelector("#f-parcelas");
+      const n = parseInt(inp.value) || 1;
+      inp.value = Math.max(1, Math.min(72, n + (act==="parc-mais" ? 1 : -1)));
+      inp.dispatchEvent(new Event("input", {bubbles:true}));
+      break;
+    }
 
     case "salvar-nova":   if(sheet) salvarNova(sheet); break;
     case "salvar-edicao": if(sheet) salvarEdicao(id, sheet); break;
