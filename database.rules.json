@@ -1,0 +1,42 @@
+{
+  "rules": {
+    "livros": {
+      "$livro": {
+        ".read":  "auth != null",
+        ".write": "auth != null",
+
+        "meta": {
+          "saldoBase":   { ".validate": "newData.isNumber()" },
+          "saldoBaseEm": { ".validate": "newData.isString() && newData.val().length == 10" },
+          "perfis":      { ".validate": "newData.hasChildren()" },
+          "$outro":      { ".validate": false }
+        },
+
+        "despesas": {
+          "$id": {
+            ".validate": "newData.hasChildren(['descricao','valor','vencimento'])",
+            "descricao":     { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 60" },
+            "valor":         { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() < 10000000" },
+            "vencimento":    { ".validate": "newData.isString() && newData.val().length == 10" },
+            "categoria":     { ".validate": "newData.isString()" },
+            "divisao":       { ".validate": "newData.val() == 'casal' || newData.val() == 'individual'" },
+            "adicionadoPor": { ".validate": "newData.isString()" },
+            "pago":          { ".validate": "newData.isBoolean()" },
+            "dataPagamento": { ".validate": "newData.isString() || newData.val() == null" },
+            "pagoPor":       { ".validate": "newData.isString() || newData.val() == null" },
+            "recorrente":    { ".validate": "newData.isBoolean()" },
+            "origem":        { ".validate": "newData.isString() || newData.val() == null" },
+            "criadoEm":      { ".validate": "newData.isString()" },
+            "$outro":        { ".validate": false }
+          }
+        },
+
+        "$outro": { ".validate": false }
+      }
+    },
+    "estado_orcamento": {
+      ".read":  "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}

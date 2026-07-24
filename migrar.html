@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Migrar dados do livro antigo</title>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+<style>
+body{font-family:ui-sans-serif,system-ui,sans-serif;max-width:640px;margin:40px auto;padding:0 20px;
+     background:#F2EFE7;color:#1C1A17;line-height:1.55;}
+h1{font-size:22px;margin:0 0 6px;}
+p.sub{color:#5A554C;margin:0 0 24px;font-size:14px;}
+.box{background:#FCFBF7;border:1px solid #DCD6C8;border-radius:12px;padding:18px;margin-bottom:14px;}
+label{display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;
+      color:#928C80;margin-bottom:5px;}
+input{width:100%;padding:9px 10px;border:1px solid #DCD6C8;border-radius:8px;font-size:15px;
+      margin-bottom:12px;background:#F2EFE7;}
+button{background:#1F5D50;color:#fff;border:none;border-radius:9px;padding:11px 18px;
+       font-size:14px;font-weight:600;cursor:pointer;}
+button:disabled{opacity:.5;cursor:default;}
+pre{background:#1C1A17;color:#F0EDE5;padding:14px;border-radius:9px;font-size:12.5px;
+    white-space:pre-wrap;word-break:break-word;max-height:340px;overflow:auto;margin:14px 0 0;}
+.warn{background:#F6EEDC;border:1px solid #D9A63C;border-radius:9px;padding:12px 14px;
+      font-size:13.5px;margin-bottom:18px;}
+</style>
+</head>
+<body>
+<h1>Migrar dados do livro antigo</h1>
+<p class="sub">Copia o conteúdo de <code>estado_orcamento</code> para a nova estrutura <code>livros/casa</code>. Rode uma vez só.</p>
+
+<div class="warn">O dado antigo <b>não é apagado</b>. Se algo der errado, ele continua lá intacto.</div>
+
+<div class="box">
+  <label for="em">E-mail</label>
+  <input type="email" id="em" placeholder="voce@email.com">
+  <label for="sn">Senha</label>
+  <input type="password" id="sn" placeholder="sua senha">
+  <button id="go">Entrar e migrar</button>
+</div>
+
+<pre id="log">Aguardando…</pre>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyC8hKLZ_pKHJ7DlS6OqvDvqzPk9FN3-8OM",
+  authDomain: "financas-ael.firebaseapp.com",
+  databaseURL: "https://financas-ael-default-rtdb.firebaseio.com",
+  projectId: "financas-ael",
+  storageBucket: "financas-ael.firebasestorage.app",
+  messagingSenderId: "928624497972",
+  appId: "1:928624497972:web:7204275e84d1ac40e84161"
+};
+const LIVRO_ID = "casa";
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth(), db = firebase.database();
+const log = document.getElementById("log");
+let linhas = [];
+function p(s){ linhas.push(s); log.textContent = linhas.join("\n"); }
+
+function hojeISO(){
+  const d=new Date();
+  return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+}
+function uid(){ return crypto.randomUUID ? crypto.randomUUID() : "id-"+Date.now()+"-"+Math.random().toString(36).slice(2,9); }
+
+document.getElementById("go").onclick = async () => {
+  const btn = document.getElementById("go");
+  btn.disabled = true;
+  linhas = [];
+  try{
+    p("Entrando…");
+    await auth.signInWithEmailAndPassword(
+      document.getElementById("em").value.trim(),
+      document.getElementById("sn").value
+    );
+    p("✓ Autenticado como " + auth.currentUser.email);
+
+    p("\nLendo estado_orcamento…");
+    const snap = await db.ref("estado_orcamento").once("value");
+    const velho = snap.val();
+    if(!velho){ p("Nada encontrado. Nada a migrar."); btn.disabled=false; return; }
+
+    const despesasAntigas = velho.despesas
+      ? (Array.isArray(velho.despesas) ? velho.despesas : Object.values(velho.despesas))
+      : [];
+    p("✓ " + despesasAntigas.length + " despesa(s), saldo " + (velho.saldo||0));
+
+    // Reconstrói o saldo-base: o saldo antigo já tinha as pagas descontadas.
+    // Ancorando a conferência em hoje, nenhum pagamento anterior é redescontado.
+    const meta = {
+      saldoBase: Number(velho.saldo) || 0,
+      saldoBaseEm: hojeISO(),
+      perfis: (velho.perfis && velho.perfis.length) ? velho.perfis : [
+        {id:"p1", nome:"Você", cor:"#1F5D50"},
+        {id:"p2", nome:"Parceiro(a)", cor:"#9E3B2F"}
+      ]
+    };
+
+    const lote = {};
+    despesasAntigas.forEach(d => {
+      if(!d || !d.descricao) return;
+      lote[d.id || uid()] = {
+        descricao: String(d.descricao).slice(0,60),
+        valor: Number(d.valor) || 0,
+        vencimento: d.vencimento || hojeISO(),
+        categoria: d.categoria || "outros",
+        divisao: "casal",
+        adicionadoPor: d.adicionadoPor || "p1",
+        pago: !!d.pago,
+        dataPagamento: d.dataPagamento || null,
+        pagoPor: d.pago ? (d.adicionadoPor || "p1") : null,
+        recorrente: false,
+        origem: null,
+        criadoEm: new Date().toISOString()
+      };
+    });
+
+    p("\nGravando em livros/" + LIVRO_ID + "…");
+    await db.ref("livros/"+LIVRO_ID+"/meta").update(meta);
+    p("✓ meta gravada (saldo-base " + meta.saldoBase + ", conferido em " + meta.saldoBaseEm + ")");
+
+    if(Object.keys(lote).length){
+      await db.ref("livros/"+LIVRO_ID+"/despesas").update(lote);
+      p("✓ " + Object.keys(lote).length + " despesa(s) gravada(s)");
+    }
+
+    p("\n✅ MIGRAÇÃO CONCLUÍDA");
+    p("Abra o app novo e confira o saldo. Depois pode apagar 'estado_orcamento' no console do Firebase.");
+  }catch(e){
+    p("\n❌ ERRO: " + (e.code || "") + " " + e.message);
+  }
+  btn.disabled = false;
+};
+</script>
+</body>
+</html>
