@@ -26,6 +26,9 @@
             "pagoPor":       { ".validate": "newData.isString() || newData.val() == null" },
             "recorrente":    { ".validate": "newData.isBoolean()" },
             "origem":        { ".validate": "newData.isString() || newData.val() == null" },
+            "grupo":         { ".validate": "newData.isString() || newData.val() == null" },
+            "parcela":       { ".validate": "(newData.isNumber() && newData.val() >= 1 && newData.val() <= 72) || newData.val() == null" },
+            "parcelas":      { ".validate": "(newData.isNumber() && newData.val() >= 1 && newData.val() <= 72) || newData.val() == null" },
             "criadoEm":      { ".validate": "newData.isString()" },
             "$outro":        { ".validate": false }
           }
