@@ -229,6 +229,15 @@ h1,h2,h3,h4{margin:0;}
 }
 .ledger-valor.neg{color:var(--debit);}
 .ledger-valor.entrada{color:var(--accent);}
+.ledger-saldo{ display:flex; flex-direction:column; gap:4px; }
+.btn-ajustar-saldo{
+  margin-top:6px; align-self:flex-start;
+  font-size:11px; font-family:var(--mono); letter-spacing:.04em;
+  background:var(--paper-2); color:var(--ink-2);
+  border:1px solid var(--rule); border-radius:6px;
+  padding:3px 10px; cursor:pointer; transition:background .15s;
+}
+.btn-ajustar-saldo:hover{ background:var(--rule); color:var(--ink); }
 .ledger-stats{
   display:flex; gap:16px; flex-wrap:wrap; margin-bottom:14px;
 }
