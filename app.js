@@ -1759,18 +1759,27 @@ function conteudoModal(cfg){
   }
 
   if(cfg.tipo === "saldo"){
+    const calculado = saldoAtual();
     return `<form id="modal-form">
-      <div class="campo">
-        <label for="m-saldo">Saldo atual (R$)</label>
-        <input id="m-saldo" name="saldoBase" type="number" step="0.01" value="${S.saldoBase}">
-      </div>
-      <div class="campo">
-        <label for="m-saldo-em">Data de referência</label>
-        <input id="m-saldo-em" name="saldoBaseEm" type="date" value="${S.saldoBaseEm||hoje}">
+      <div class="saldo-reconcile">
+        <div class="saldo-rec-row">
+          <span class="saldo-rec-label">Saldo calculado pelo app</span>
+          <span class="saldo-rec-val">${money(calculado)}</span>
+        </div>
+        <div class="campo">
+          <label for="m-saldo-real">Saldo real na conta hoje (R$)</label>
+          <input id="m-saldo-real" name="saldoBase" type="number" step="0.01"
+                 placeholder="${moneyShort(calculado)}" value="" autocomplete="off">
+        </div>
+        <div class="saldo-rec-diff" id="saldo-diff-preview" style="display:none">
+          <span class="saldo-rec-label">Diferença</span>
+          <span id="saldo-diff-val" class="saldo-rec-diff-val"></span>
+          <span class="saldo-rec-note">será absorvida na nova âncora</span>
+        </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn-sec" data-action="fechar">Cancelar</button>
-        <button type="submit" class="btn-pri">Salvar</button>
+        <button type="submit" class="btn-pri">Salvar âncora</button>
       </div>
     </form>`;
   }
@@ -2052,9 +2061,9 @@ async function salvarCategorias(form){
 
 async function salvarSaldo(form){
   const fd  = new FormData(form);
-  const val = parseFloat(fd.get("saldoBase")) || 0;
-  const em  = fd.get("saldoBaseEm") || hojeISO();
-  await salvarMeta({ saldoBase: val, saldoBaseEm: em });
+  const val = parseFloat(fd.get("saldoBase"));
+  if(isNaN(val)){ say("Informe o saldo real.", true); return; }
+  await salvarMeta({ saldoBase: val, saldoBaseEm: hojeISO() });
   fecharModalDom();
   say("Saldo atualizado!");
 }
@@ -2266,6 +2275,27 @@ document.addEventListener("change", e=>{
   if(propAtivaCb){
     const campos = document.getElementById("prop-campos");
     if(campos) campos.style.display = propAtivaCb.checked ? "" : "none";
+    return;
+  }
+
+  // live diff no modal de saldo
+  const saldoReal = e.target.closest("#m-saldo-real");
+  if(saldoReal){
+    const calculado = saldoAtual();
+    const real = parseFloat(saldoReal.value);
+    const preview = document.getElementById("saldo-diff-preview");
+    const diffVal = document.getElementById("saldo-diff-val");
+    if(preview && diffVal){
+      if(!isNaN(real)){
+        const diff = real - calculado;
+        const sinal = diff >= 0 ? "+" : "−";
+        diffVal.textContent = `${sinal} ${money(Math.abs(diff))}`;
+        diffVal.className = "saldo-rec-diff-val " + (diff >= 0 ? "pos" : "neg");
+        preview.style.display = "";
+      } else {
+        preview.style.display = "none";
+      }
+    }
     return;
   }
 
