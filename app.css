@@ -925,6 +925,42 @@ h1,h2,h3,h4{margin:0;}
   padding: 7px 14px; font-size: 12.5px; margin-top: 4px;
 }
 
+/* ── modal reconciliação de saldo ──────────────────────── */
+.saldo-reconcile {
+  display: flex; flex-direction: column; gap: 14px;
+  background: var(--paper); border: 1px solid var(--rule-soft);
+  border-radius: var(--r); padding: 16px 16px 12px;
+  margin-bottom: 4px;
+}
+.saldo-rec-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.saldo-rec-label {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-3); white-space: nowrap;
+}
+.saldo-rec-val {
+  font-family: var(--mono); font-weight: 700; font-size: 18px;
+  font-variant-numeric: tabular-nums; color: var(--ink);
+}
+.saldo-reconcile .campo { margin-bottom: 0; }
+.saldo-rec-diff {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 12px; border-radius: var(--r-sm);
+  background: var(--paper-2); border: 1px solid var(--rule-soft);
+}
+.saldo-rec-diff-val {
+  font-family: var(--mono); font-weight: 700; font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+.saldo-rec-diff-val.pos { color: var(--accent); }
+.saldo-rec-diff-val.neg { color: var(--debit); }
+.saldo-rec-note {
+  font-size: 10.5px; color: var(--ink-3); letter-spacing: .02em;
+  font-style: italic; flex-shrink: 0;
+}
+
 /* ── propagação de alterações (modal editar parcelada) ──── */
 .prop-section {
   margin: 14px 0 4px;
