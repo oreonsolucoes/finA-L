@@ -203,6 +203,32 @@ function avisarN8N(acao, dados){
   catch(e){}
 }
 
+function textoN8N(acao, d, extra){
+  const nomeCat  = d.categoria ? cat(d.categoria).nome : "";
+  const venc     = d.vencimento ? fmtData(d.vencimento) : "—";
+  const val      = money(d.valor || 0);
+  const desc     = d.descricao || "Sem descrição";
+  const quem     = d.adicionadoPor ? pessoa(d.adicionadoPor).nome : "";
+
+  if(acao === "nova_despesa"){
+    const nParc   = extra && extra.nParc > 1 ? extra.nParc : 1;
+    const parcStr = nParc > 1 ? `\n🔢 Parcelado em ${nParc}x` : "";
+    const recStr  = d.recorrente ? "\n↺ Recorrente todo mês" : "";
+    return `💸 *Nova conta lançada*\n📝 ${desc}\n💰 ${val}\n🏷 ${nomeCat}\n📅 Vence ${venc}${parcStr}${recStr}${quem ? `\n👤 ${quem}` : ""}`;
+  }
+  if(acao === "editar_despesa"){
+    return `✏️ *Conta editada*\n📝 ${desc}\n💰 ${val}\n🏷 ${nomeCat}\n📅 Vence ${venc}${quem ? `\n👤 ${quem}` : ""}`;
+  }
+  if(acao === "quitar_despesa"){
+    const dataPag = extra && extra.dataPagamento ? fmtData(extra.dataPagamento) : fmtData(hojeISO());
+    return `✅ *Conta quitada!*\n📝 ${desc}\n💰 ${val}${nomeCat ? `\n🏷 ${nomeCat}` : ""}\n📅 Pago em ${dataPag}`;
+  }
+  if(acao === "excluir_despesa"){
+    return `🗑 *Conta excluída*\n📝 ${desc}\n💰 ${val}${nomeCat ? `\n🏷 ${nomeCat}` : ""}`;
+  }
+  return `📱 ${acao}: ${desc} — ${val}`;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    FIREBASE
    ═══════════════════════════════════════════════════════════════ */
@@ -695,8 +721,8 @@ function viewLedgerCard(ym){
   const totalEntradas = entradas.reduce((s,d)=>s+(Number(d.valor)||0),0);
   return `<div class="ledger-card">
     <div class="ledger-top">
-      <div class="ledger-saldo">
-        <span class="ledger-label">Saldo atual</span>
+      <div class="ledger-saldo" data-action="saldo" title="Clique para ajustar saldo" style="cursor:pointer">
+        <span class="ledger-label">Saldo atual ✏️</span>
         <span class="ledger-valor${sal<0?" neg":""}">${money(sal)}</span>
       </div>
       ${totalEntradas>0?`<div class="ledger-entrada"><span class="ledger-label">Entradas do mês</span><span class="ledger-valor entrada">${money(totalEntradas)}</span></div>`:""}
@@ -1849,7 +1875,17 @@ async function salvarNova(form){
     await gravarDespesa(uid(), base);
   }
 
-  avisarN8N("nova_despesa", { descricao: base.descricao, valor: base.valor });
+  avisarN8N("nova_despesa", {
+    descricao:    base.descricao,
+    valor:        base.valor,
+    categoria:    base.categoria,
+    vencimento:   base.vencimento,
+    adicionadoPor: base.adicionadoPor,
+    recorrente:   base.recorrente,
+    nParc,
+    totalParcelas: nParc > 1 ? nParc : undefined,
+    texto: textoN8N("nova_despesa", base, { nParc })
+  });
   fecharModalDom();
   say("Conta salva!");
 }
@@ -1895,6 +1931,7 @@ async function salvarEdicao(form, id){
         if(fd.get("prop_valor")     === "on") campoProp.valor     = patch.valor;
         if(Object.keys(campoProp).length > 0){
           await Promise.all(proximas.map(dx => gravarDespesa(dx.id, campoProp)));
+          avisarN8N("editar_despesa", Object.assign({}, patch, { id, propagado: proximas.length + 1, texto: textoN8N("editar_despesa", patch) }));
           fecharModalDom();
           say(`✓ Atualizado em ${proximas.length + 1} parcelas!`);
           return;
@@ -1903,6 +1940,7 @@ async function salvarEdicao(form, id){
     }
   }
 
+  avisarN8N("editar_despesa", Object.assign({}, patch, { id, texto: textoN8N("editar_despesa", patch) }));
   fecharModalDom();
   say("Atualizado!");
 }
@@ -1910,7 +1948,18 @@ async function salvarEdicao(form, id){
 async function quitar(id){
   const d = S.despesas.find(d=>d.id===id);
   if(!d) return;
-  await gravarDespesa(id, { pago: true, dataPagamento: hojeISO() });
+  const dataPag = hojeISO();
+  await gravarDespesa(id, { pago: true, dataPagamento: dataPag });
+  avisarN8N("quitar_despesa", {
+    id,
+    descricao:     d.descricao,
+    valor:         d.valor,
+    categoria:     d.categoria,
+    vencimento:    d.vencimento,
+    adicionadoPor: d.adicionadoPor,
+    dataPagamento: dataPag,
+    texto: textoN8N("quitar_despesa", d, { dataPagamento: dataPag })
+  });
   say("Quitada! ✓");
 }
 
@@ -1931,7 +1980,16 @@ async function alternarRecorrencia(id){
 }
 
 async function excluir(id){
+  const d = S.despesas.find(x=>x.id===id);
   await apagarDespesa(id);
+  if(d) avisarN8N("excluir_despesa", {
+    id,
+    descricao:  d.descricao,
+    valor:      d.valor,
+    categoria:  d.categoria,
+    vencimento: d.vencimento,
+    texto: textoN8N("excluir_despesa", d)
+  });
   fecharModalDom();
   say("Excluída.");
 }
