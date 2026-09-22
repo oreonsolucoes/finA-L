@@ -721,9 +721,10 @@ function viewLedgerCard(ym){
   const totalEntradas = entradas.reduce((s,d)=>s+(Number(d.valor)||0),0);
   return `<div class="ledger-card">
     <div class="ledger-top">
-      <div class="ledger-saldo" data-action="saldo" title="Clique para ajustar saldo" style="cursor:pointer">
-        <span class="ledger-label">Saldo atual ✏️</span>
+      <div class="ledger-saldo">
+        <span class="ledger-label">Saldo atual</span>
         <span class="ledger-valor${sal<0?" neg":""}">${money(sal)}</span>
+        <button class="btn-ajustar-saldo" data-action="saldo" title="Ajustar saldo">✏️ Ajustar</button>
       </div>
       ${totalEntradas>0?`<div class="ledger-entrada"><span class="ledger-label">Entradas do mês</span><span class="ledger-valor entrada">${money(totalEntradas)}</span></div>`:""}
     </div>
