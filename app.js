@@ -1991,21 +1991,137 @@ async function alternarRecorrencia(id){
 
 async function excluir(id){
   const d = S.despesas.find(x=>x.id===id);
-  await apagarDespesa(id);
-  if(d) avisarN8N("excluir_despesa", {
-    id,
+  if(!d) return;
+
+  // Determina se tem "em aberto" além desta
+  const isParc      = !!d.grupo;
+  const isTemplate  = !!d.recorrente;
+  const isCopia     = !!d.origem;
+
+  if(isParc){
+    // Parcelas em aberto (não pagas) além desta
+    const proxAberto = S.despesas.filter(x =>
+      x.grupo === d.grupo && !x.pago && x.id !== id
+    );
+    if(proxAberto.length > 0){
+      _confirmarExclusaoGrupo(d, "parc", proxAberto.length);
+      return;
+    }
+  } else if(isTemplate){
+    // Recorrente template — copias futuras não pagas
+    const copiasAberto = S.despesas.filter(x =>
+      x.origem === id && !x.pago
+    );
+    if(copiasAberto.length > 0){
+      _confirmarExclusaoGrupo(d, "tmpl", copiasAberto.length);
+      return;
+    }
+  } else if(isCopia){
+    // Cópia de recorrente — verifica se o template e outras cópias existem
+    const tmpl = S.despesas.find(x => x.id === d.origem);
+    const outrasAberto = S.despesas.filter(x =>
+      x.origem === d.origem && !x.pago && x.id !== id
+    );
+    if(tmpl || outrasAberto.length > 0){
+      _confirmarExclusaoGrupo(d, "copia", outrasAberto.length, tmpl);
+      return;
+    }
+  }
+
+  // Caso simples: apaga só esta
+  await _apagarSoEsta(d);
+}
+
+function _confirmarExclusaoGrupo(d, tipo, nOutros, tmpl){
+  // Monta mini-modal de confirmação sobre o modal atual
+  const overlay = document.getElementById("modal-overlay");
+  const existente = document.getElementById("conf-excl");
+  if(existente) existente.remove();
+
+  let labelTodas = "";
+  if(tipo === "parc")   labelTodas = `Todas em aberto (${nOutros + 1} parcela${nOutros+1>1?"s":""})`;
+  if(tipo === "tmpl")   labelTodas = `Template + ${nOutros} cópia${nOutros>1?"s":""} futuras`;
+  if(tipo === "copia")  labelTodas = `Esta + template${nOutros > 0 ? ` + ${nOutros} futura${nOutros>1?"s":""}` : ""}`;
+
+  const div = document.createElement("div");
+  div.id = "conf-excl";
+  div.style.cssText = `
+    position:fixed;inset:0;z-index:9999;display:flex;align-items:center;
+    justify-content:center;background:rgba(0,0,0,.55);
+  `;
+  div.innerHTML = `
+    <div style="background:var(--bg-card);border-radius:16px;padding:24px 20px;
+      max-width:320px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.3);text-align:center;">
+      <p style="font-size:15px;font-weight:600;margin:0 0 6px">Excluir conta</p>
+      <p style="font-size:13px;color:var(--ink-2);margin:0 0 20px">
+        ${tipo==="parc"
+          ? "Essa conta é parcelada. O que deseja excluir?"
+          : "Essa conta é recorrente. O que deseja excluir?"}
+      </p>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button id="conf-so-esta" class="btn-sec" style="width:100%">Só esta</button>
+        <button id="conf-todas"   class="btn-danger" style="width:100%">${labelTodas}</button>
+        <button id="conf-cancel"  class="btn-sec" style="width:100%;margin-top:4px">Cancelar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+
+  div.querySelector("#conf-cancel").onclick = () => div.remove();
+  div.addEventListener("click", e => { if(e.target === div) div.remove(); });
+
+  div.querySelector("#conf-so-esta").onclick = async () => {
+    div.remove();
+    await _apagarSoEsta(d);
+  };
+
+  div.querySelector("#conf-todas").onclick = async () => {
+    div.remove();
+    if(tipo === "parc"){
+      // Apaga todas as parcelas não pagas do grupo (incluindo esta)
+      const ids = S.despesas
+        .filter(x => x.grupo === d.grupo && !x.pago)
+        .map(x => x.id);
+      await Promise.all(ids.map(id => apagarDespesa(id)));
+      fecharModalDom();
+      say(`${ids.length} parcela${ids.length>1?"s":""} excluída${ids.length>1?"s":""}!`);
+    } else if(tipo === "tmpl"){
+      // Apaga o template + cópias futuras não pagas
+      const ids = [d.id, ...S.despesas
+        .filter(x => x.origem === d.id && !x.pago)
+        .map(x => x.id)];
+      await Promise.all(ids.map(id => apagarDespesa(id)));
+      fecharModalDom();
+      say("Recorrência encerrada.");
+    } else if(tipo === "copia"){
+      // Apaga esta cópia + template + outras cópias futuras não pagas
+      const ids = [d.id];
+      if(tmpl) ids.push(tmpl.id);
+      S.despesas
+        .filter(x => x.origem === d.origem && !x.pago && x.id !== d.id)
+        .forEach(x => ids.push(x.id));
+      await Promise.all(ids.map(id => apagarDespesa(id)));
+      fecharModalDom();
+      say("Recorrência encerrada.");
+    }
+  };
+}
+
+async function _apagarSoEsta(d){
+  await apagarDespesa(d.id);
+  avisarN8N("excluir_despesa", {
+    id:         d.id,
     descricao:  d.descricao,
     valor:      d.valor,
     categoria:  d.categoria,
     vencimento: d.vencimento,
-    texto: textoN8N("excluir_despesa", d)
+    texto:      textoN8N("excluir_despesa", d)
   });
   fecharModalDom();
   say("Excluída.");
 }
 
 async function excluirGrupo(grupo){
-  const ids = S.despesas.filter(d=>d.grupo===grupo).map(d=>d.id);
+  const ids = S.despesas.filter(d=>d.grupo===grupo && !d.pago).map(d=>d.id);
   await Promise.all(ids.map(id=>apagarDespesa(id)));
   fecharModalDom();
   say(`${ids.length} parcela${ids.length>1?"s":""} excluída${ids.length>1?"s":""}!`);
