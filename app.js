@@ -1028,10 +1028,16 @@ function viewPlano(ym){
   const { plano, janelas, saldosJanela, jUltAnt } = planoPagamento(ym);
   const { nome, ano } = labelMes(ym);
 
+  // alocado por janela (precisa recalcular localmente para a exibição)
+  const alocadoExib = janelas.map(()=>0);
+  plano.filter(p=>p.janela!=null).forEach(p=>{ alocadoExib[p.janela] += Number(p.conta.valor)||0; });
+
   const janelaHtml = janelas.map((j,i) => {
     const itens = plano.filter(p=>p.janela===i);
     const total = itens.reduce((s,p)=>s+(Number(p.conta.valor)||0),0);
-    const dispon = saldosJanela[i] - total;
+    // saldo após = saldo acumulado até esta janela menos tudo já alocado até aqui (inclusive)
+    const gastoAcum = alocadoExib.slice(0, i+1).reduce((s,v)=>s+v, 0);
+    const dispon = saldosJanela[i] - gastoAcum;
     return `<div class="plano-item">
       <div class="plano-day">
         <span class="janela-chip">${fmtData(j.data)}</span>
