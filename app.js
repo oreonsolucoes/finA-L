@@ -295,14 +295,42 @@ async function apagarDespesa(id){
    CÁLCULOS DERIVADOS
    ═══════════════════════════════════════════════════════════════ */
 
-function rendaFixaMensal(){ return janelasPadrao().reduce((s,j)=>s+j.valor,0); }
+function rendaFixaMensal(){ return janelasPadrao().reduce((s,j)=>s+(Number(j.valor)||0),0); }
 
+// Entradas AVULSAS lançadas no mês (bônus, extras…). Não inclui os salários fixos.
 function rendaNoMes(ym){
   return S.despesas
     .filter(d => d.tipo==="entrada" && (d.vencimento||"").slice(0,7)===ym)
     .reduce((s,d)=>s+(Number(d.valor)||0),0);
 }
 
+// Renda total do mês = salários fixos (janelas) + entradas avulsas
+function rendaTotalMes(ym){ return rendaFixaMensal() + rendaNoMes(ym); }
+
+// Datas reais de cada janela de salário no mês (com antecipação p/ dia útil)
+function janelasDoMes(ym){
+  const [y,m] = ym.split("-").map(Number);
+  const ult = new Date(y, m, 0).getDate();
+  return janelasPadrao().map(j => {
+    const dia  = Math.min(j.dia, ult);
+    const base = `${ym}-${String(dia).padStart(2,"0")}`;
+    const data = j.antecipar ? diaUtilAnterior(base) : base;
+    return { data, base, dia:j.dia, valor:Number(j.valor)||0, recebidoPor:j.recebidoPor, antecipar:!!j.antecipar };
+  });
+}
+
+// Soma dos salários fixos com data no intervalo (de, ate]
+function rendaFixaEntre(de, ate){
+  if(!de || !ate || ate <= de) return 0;
+  let soma = 0;
+  const fim = addMes(ate.slice(0,7), 1); // antecipação pode puxar dia 1 do mês seguinte
+  for(let ym = de.slice(0,7); ym <= fim; ym = addMes(ym, 1)){
+    janelasDoMes(ym).forEach(j => { if(j.data > de && j.data <= ate) soma += j.valor; });
+  }
+  return soma;
+}
+
+// Saldo em conta hoje: saldo base + salários fixos já caídos + entradas avulsas recebidas − contas pagas
 function saldoAtual(){
   const desde = S.saldoBaseEm;
   const depois = S.despesas.filter(d =>
@@ -312,7 +340,67 @@ function saldoAtual(){
     .reduce((s,d) => s + (Number(d.valor)||0), 0);
   const saidas   = depois.filter(d => d.tipo!=="entrada")
     .reduce((s,d) => s + (Number(d.valor)||0), 0);
-  return S.saldoBase + entradas - saidas;
+  const salarios = rendaFixaEntre(desde, hojeISO());
+  return S.saldoBase + salarios + entradas - saidas;
+}
+
+// Último dia do mês (ISO)
+function fimDoMes(ym){
+  const [y,m] = ym.split("-").map(Number);
+  return `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2,"0")}`;
+}
+
+// Quanto ainda vai entrar de hoje (exclusive) até `ate` (inclusive): salários + avulsas não recebidas
+function rendaAReceberAte(ate){
+  const hoje = hojeISO();
+  const fixos = rendaFixaEntre(hoje, ate);
+  const avulsas = S.despesas
+    .filter(d => d.tipo==="entrada" && !d.pago && (d.vencimento||"") <= ate)
+    .reduce((s,d)=>s+(Number(d.valor)||0),0);
+  return fixos + avulsas;
+}
+
+// Contas ainda não pagas com vencimento até `ate` (inclui atrasadas)
+function contasAbertasAte(ate){
+  return S.despesas
+    .filter(d => d.tipo!=="entrada" && !d.pago && (d.vencimento||"") <= ate)
+    .reduce((s,d)=>s+(Number(d.valor)||0),0);
+}
+
+// Saldo previsto ao fim do mês ym, se tudo que vence até lá for pago e toda renda prevista cair
+function saldoPrevistoFim(ym){
+  const ate = fimDoMes(ym);
+  if(ate < hojeISO()) return saldoAtual();
+  return saldoAtual() + rendaAReceberAte(ate) - contasAbertasAte(ate);
+}
+
+// Balanço de renda × gastos de um mês (competência: tudo que vence no mês)
+function balancoMes(ym){
+  const r       = resumo(ym);
+  const hoje    = hojeISO();
+  const jan     = janelasDoMes(ym);
+  const fixa    = jan.reduce((s,j)=>s+j.valor,0);
+  const avulsasL= doMes(ym).filter(d => d.tipo==="entrada");
+  const avulsa  = avulsasL.reduce((s,d)=>s+(Number(d.valor)||0),0);
+  const renda   = fixa + avulsa;
+  const recebido= jan.filter(j=>j.data <= hoje).reduce((s,j)=>s+j.valor,0)
+                + avulsasL.filter(d=>d.pago).reduce((s,d)=>s+(Number(d.valor)||0),0);
+  const resultado = renda - r.total;
+  const pctComp = renda > 0 ? (r.total / renda) * 100 : 0;
+
+  // renda por pessoa (salários + avulsas de quem lançou)
+  const porPessoa = {};
+  jan.forEach(j => { porPessoa[j.recebidoPor] = (porPessoa[j.recebidoPor]||0) + j.valor; });
+  avulsasL.forEach(d => {
+    const nome = pessoa(d.adicionadoPor || (S.perfis[0]&&S.perfis[0].id)).nome;
+    porPessoa[nome] = (porPessoa[nome]||0) + (Number(d.valor)||0);
+  });
+
+  return {
+    fixa, avulsa, renda, recebido, aReceber: renda - recebido,
+    gastos: r.total, pago: r.vlPago, aberto: r.vlAberto, atraso: r.vlAtraso, nContas: r.nTodas,
+    resultado, pctComp, porPessoa
+  };
 }
 
 function doMes(ym){
@@ -400,7 +488,8 @@ function mediaVariavel(n){
   let soma = 0;
   for(let i = 1; i <= n; i++){
     soma += doMes(addMes(base, -i))
-      .filter(d => d.tipo !== "entrada" && !d.recorrente && !(d.parcelas > 1))
+      // variável = só o que não é recorrente (template ou cópia) nem parcela
+      .filter(d => d.tipo !== "entrada" && !d.recorrente && !d.origem && !d.grupo && !(d.parcelas > 1))
       .reduce((s,d)=>s+(Number(d.valor)||0),0);
   }
   return n ? soma/n : 0;
@@ -413,14 +502,17 @@ function travadoNoMes(ym){
 function projecao(n){
   const base = mesAtualISO();
   const mv = mediaVariavel(3);
-  const saldo0 = saldoAtual();
+  // parte do saldo previsto no fim do mês atual (já com salários e contas que faltam)
+  const saldo0 = saldoPrevistoFim(base);
   let pisoSaldo = saldo0, provSaldo = saldo0;
-  const renda = rendaFixaMensal();
   const linhas = [];
   for(let i = 1; i <= n; i++){
     const ym = addMes(base, i);
-    const travado = travadoNoMes(ym);
-    const rendaReal = rendaNoMes(ym) || renda;
+    // só o que ainda não foi pago — o que já foi pago já saiu do saldo atual
+    const travado = doMes(ym).filter(d => d.tipo !== "entrada" && !d.pago)
+      .reduce((s,d)=>s+(Number(d.valor)||0),0);
+    const rendaReal = rendaFixaMensal() + doMes(ym).filter(d => d.tipo==="entrada" && !d.pago)
+      .reduce((s,d)=>s+(Number(d.valor)||0),0);
     pisoSaldo = pisoSaldo + rendaReal - travado;
     provSaldo = provSaldo + rendaReal - (travado + mv);
     linhas.push({ ym, travado, rendaReal, pisoSaldo, provSaldo });
@@ -429,13 +521,8 @@ function projecao(n){
 }
 
 function planoPagamento(ym){
-  const [y,m] = ym.split("-").map(Number);
-  const janelas = janelasPadrao().map(j => {
-    const dia = Math.min(j.dia, new Date(y, m, 0).getDate());
-    let data = `${ym}-${String(dia).padStart(2,"0")}`;
-    if(j.antecipar) data = diaUtilAnterior(data);
-    return { data, valor:j.valor, recebidoPor:j.recebidoPor };
-  });
+  const hoje = hojeISO();
+  const janelas = janelasDoMes(ym).map(j => Object.assign(j, { recebido: j.data <= hoje }));
   // última janela do mês anterior — contas que vencem antes do dia 5 vão aqui
   const ymAnt = addMes(ym, -1);
   const [yA,mA] = ymAnt.split("-").map(Number);
@@ -446,8 +533,10 @@ function planoPagamento(ym){
   })();
   const contas = doMes(ym).filter(d => !d.pago && d.tipo !== "entrada")
     .sort((a,b) => (a.vencimento||"").localeCompare(b.vencimento||""));
-  let acumBase = saldoAtual();
-  const saldosJanela = janelas.map((j) => { acumBase += j.valor; return acumBase; });
+  // Saldo de partida: hoje, ou o previsto ao fim do mês anterior se o plano é de um mês futuro.
+  // Salários que já caíram estão dentro do saldo atual — não somar de novo.
+  let acumBase = ym > hoje.slice(0,7) ? saldoPrevistoFim(addMes(ym,-1)) : saldoAtual();
+  const saldosJanela = janelas.map((j) => { if(!j.recebido) acumBase += j.valor; return acumBase; });
   const plano = [];
   const alocado = janelas.map(()=>0);
   contas.forEach(d => {
@@ -474,7 +563,7 @@ function planoPagamento(ym){
 }
 
 function distribuirSobra(ym){
-  const renda  = rendaNoMes(ym) || rendaFixaMensal();
+  const renda  = rendaTotalMes(ym);
   const gastos = resumo(ym).total;
   const sobra  = renda - gastos;
   if(sobra <= 0) return { sobra, nada:true };
@@ -516,12 +605,11 @@ function sugestoes(){
       texto:`${atr.length} conta${atr.length>1?"s":""} vencida${atr.length>1?"s":""} somando ${money(v)}. Quite antes de gerar juros.` });
   }
 
-  const abertoMes = doMes(base).filter(d=>!d.pago && d.tipo!=="entrada").reduce((s,d)=>s+(Number(d.valor)||0),0);
-  const prev = saldoAtual() - abertoMes;
+  const prev = saldoPrevistoFim(base);
   if(prev < 0){
     out.push({ icon:"alert", prio:1,
       titulo:"Saldo aperta este mês",
-      texto:`Pagando tudo que falta, o saldo fica em ${money(prev)}. Segure gastos não essenciais ou reforce a conta.` });
+      texto:`Contando os salários que ainda vão cair e pagando tudo que falta, o saldo fecha o mês em ${money(prev)}. Segure gastos não essenciais ou reforce a conta.` });
   }
 
   const catAtual = {}, catHist = {};
@@ -852,20 +940,61 @@ function linha(d, extraClass=""){
    VIEW RENDA
    ═══════════════════════════════════════════════════════════════ */
 
+function viewBalanco(ym){
+  const b = balancoMes(ym);
+  const pos = b.resultado >= 0;
+  const pct = Math.min(b.pctComp, 100);
+  const pctPago = b.renda > 0 ? Math.min(b.pago / b.renda * 100, 100) : 0;
+  const pessoas = Object.entries(b.porPessoa).filter(([,v])=>v>0);
+  const totP = pessoas.reduce((s,[,v])=>s+v,0) || 1;
+  const fimMes = saldoPrevistoFim(ym);
+
+  return `<div class="ledger-card balanco">
+    <div class="balanco-linhas">
+      <div class="balanco-linha"><span>Salários fixos</span><span class="ok">+ ${money(b.fixa)}</span></div>
+      ${b.avulsa>0?`<div class="balanco-linha"><span>Entradas avulsas</span><span class="ok">+ ${money(b.avulsa)}</span></div>`:""}
+      <div class="balanco-linha forte"><span>Renda do mês</span><span class="ok">${money(b.renda)}</span></div>
+      <div class="balanco-linha"><span>Contas do mês <small>(${b.nContas})</small></span><span class="err">− ${money(b.gastos)}</span></div>
+      <div class="balanco-linha sub"><span>já pagas</span><span>${money(b.pago)}</span></div>
+      <div class="balanco-linha sub"><span>a pagar${b.atraso>0?` <em class="err">· ${money(b.atraso)} em atraso</em>`:""}</span><span>${money(b.aberto)}</span></div>
+      <div class="balanco-linha total ${pos?"ok":"err"}"><span>${pos?"Sobra":"Déficit"}</span><span>${money(b.resultado)}</span></div>
+    </div>
+
+    <div class="balanco-barra" title="Quanto da renda está comprometido">
+      <div class="balanco-fill pago" style="width:${pctPago}%"></div>
+      <div class="balanco-fill aberto${b.pctComp>100?" estouro":""}" style="width:${Math.max(pct-pctPago,0)}%"></div>
+    </div>
+    <div class="ledger-pct">${Math.round(b.pctComp)}% da renda comprometida${b.pctComp>100?` · <span class="err">estourou ${money(-b.resultado)}</span>`:""}</div>
+
+    <div class="ledger-stats balanco-stats">
+      <div class="stat"><span class="stat-label">Já recebido</span><span class="stat-val ok">${money(b.recebido)}</span></div>
+      <div class="stat"><span class="stat-label">A receber</span><span class="stat-val">${money(b.aReceber)}</span></div>
+      <div class="stat"><span class="stat-label">Saldo hoje</span><span class="stat-val${saldoAtual()<0?" err":""}">${money(saldoAtual())}</span></div>
+      <div class="stat"><span class="stat-label">Fecha o mês com</span><span class="stat-val ${fimMes<0?"err":"ok"}">${money(fimMes)}</span></div>
+    </div>
+
+    ${pessoas.length>1?`<div class="balanco-pessoas">
+      ${pessoas.map(([n,v])=>`<div class="balanco-pessoa">
+        <span>${esc(n)}</span><span class="mono">${money(v)} · ${Math.round(v/totP*100)}%</span>
+      </div>`).join("")}
+    </div>`:""}
+  </div>`;
+}
+
 function viewRenda(ym){
   const { nome, ano } = labelMes(ym);
   const jan = janelasPadrao();
+  const hoje = hojeISO();
 
   // Renda fixa: tabela das janelas
-  const fixaRows = jan.map((j,i)=>{
-    const dia = Math.min(j.dia, new Date(...ym.split("-").map(Number).map((v,k)=>k===1?v:v), 0).getDate());
-    let dataBase = `${ym}-${String(dia).padStart(2,"0")}`;
-    const dataReal = j.antecipar ? diaUtilAnterior(dataBase) : dataBase;
-    const antecipou = dataReal !== dataBase;
+  const fixaRows = janelasDoMes(ym).map(j=>{
+    const antecipou = j.data !== j.base;
+    const caiu = j.data <= hoje;
     return `<div class="renda-row">
       <div class="renda-row-left">
-        <span class="janela-chip${antecipou?" neg":""}">dia ${j.dia}${antecipou?` → ${fmtData(dataReal)}`:""}</span>
+        <span class="janela-chip${antecipou?" neg":""}">dia ${j.dia}${antecipou?` → ${fmtData(j.data)}`:""}</span>
         <span class="renda-pessoa">${esc(j.recebidoPor)}</span>
+        <span class="renda-status${caiu?" ok":""}">${caiu?"recebido":"a receber"}</span>
       </div>
       <span class="renda-valor">${money(j.valor)}</span>
     </div>`;
@@ -899,7 +1028,7 @@ function viewRenda(ym){
   const dist = distribuirSobra(ym);
   const distHtml = dist.nada
     ? `<div class="plano-alert" style="background:var(--debit-soft);border-color:var(--debit)">
-        ${icAlert()} Neste mês o gasto supera a renda — sem sobra para distribuir.
+        ${icAlert()} Neste mês as contas (${money(resumo(ym).total)}) superam a renda (${money(rendaTotalMes(ym))}) em ${money(-dist.sobra)} — sem sobra para distribuir.
        </div>`
     : `<div class="dist-grid">
         <div class="dist-card reserva">
@@ -922,7 +1051,10 @@ function viewRenda(ym){
         · ${100 - dist.cfg.reserva - dist.cfg.investimento}% livre</div>`;
 
   return `<div class="relatorios">
-    <h2 class="section-title">Renda fixa · ${nome} ${ano}</h2>
+    <h2 class="section-title">Balanço · ${nome} ${ano}</h2>
+    ${viewBalanco(ym)}
+
+    <h2 class="section-title" style="margin-top:20px">Renda fixa · ${nome} ${ano}</h2>
     <div class="ledger-card" style="padding:0">
       <div style="padding:14px 16px 0">${fixaRows}</div>
       <div class="ledger-stats" style="padding:10px 16px 14px;border-top:1px solid var(--rule-soft);margin-top:10px">
@@ -1041,7 +1173,7 @@ function viewPlano(ym){
     return `<div class="plano-item">
       <div class="plano-day">
         <span class="janela-chip">${fmtData(j.data)}</span>
-        <span class="plano-meta">${esc(j.recebidoPor)} · ${money(j.valor)}</span>
+        <span class="plano-meta">${esc(j.recebidoPor)} · ${money(j.valor)}${j.recebido?" · já no saldo":""}</span>
       </div>
       <div class="plano-body">
         ${itens.length===0
@@ -1128,7 +1260,7 @@ function viewRelatorios(){
   const r   = resumo(ym);
   const sal = saldoAtual();
   const { nome, ano } = labelMes(ym);
-  const renda   = rendaNoMes(ym) || rendaFixaMensal();
+  const renda   = rendaTotalMes(ym);
   const sobra   = renda - r.total;
   const ac      = acerto(ym);
 
@@ -1173,10 +1305,11 @@ function viewRelatorios(){
     <h2 class="section-title">Resumo · ${nome} ${ano}</h2>
 
     <div class="kpi-grid">
-      ${kpi("Renda do mês", money(renda), "salários + extras", "pos", null, "renda-kpi")}
-      ${kpi("Total de gastos", money(r.total), `${r.nTodas} conta${r.nTodas===1?"":"s"}`, r.total>renda?"neg":"")}
-      ${kpi("Sobra real", money(sobra), sobra>=0?"no verde":"atenção!", sobra>=0?"pos":"neg", null, "sobra-kpi")}
-      ${kpi("Saldo atual", money(sal), "em conta", sal<0?"neg":"")}
+      ${kpi("Renda do mês", money(renda), `salários ${money(rendaFixaMensal())}${rendaNoMes(ym)>0?` + extras ${money(rendaNoMes(ym))}`:""}`, "pos", null, "renda-kpi")}
+      ${kpi("Total de gastos", money(r.total), `${r.nTodas} conta${r.nTodas===1?"":"s"} · ${renda>0?Math.round(r.total/renda*100):0}% da renda`, r.total>renda?"neg":"")}
+      ${kpi(sobra>=0?"Sobra do mês":"Déficit do mês", money(sobra), sobra>=0?"renda − gastos · no verde":"gastos maiores que a renda", sobra>=0?"pos":"neg", null, "sobra-kpi")}
+      ${kpi("Saldo atual", money(sal), "em conta hoje", sal<0?"neg":"")}
+      ${kpi("Fecha o mês com", money(saldoPrevistoFim(ym)), "saldo + a receber − a pagar", saldoPrevistoFim(ym)<0?"neg":"pos")}
       ${r.vlAtraso>0?kpi("Em atraso", money(r.vlAtraso), `${r.nAtrasadas} conta${r.nAtrasadas===1?"":"s"}`, "neg"):""}
     </div>
 
@@ -1219,12 +1352,12 @@ function viewRelatorios(){
     <div class="proj-scroll">
       <table class="proj-table">
         <thead><tr>
-          <th>Mês</th><th class="num">Renda</th><th class="num">Fixos</th><th class="num">Saldo piso</th><th class="num">Saldo provável</th>
+          <th>Mês</th><th class="num">Renda</th><th class="num">A pagar</th><th class="num">Saldo piso</th><th class="num">Saldo provável</th>
         </tr></thead>
         <tbody>${projRows}</tbody>
       </table>
     </div>
-    <p class="proj-note">Variável estimado: ${money(proj.mediaVariavel)}/mês · Saldo base: ${money(proj.saldo0)}</p>
+    <p class="proj-note">Parte de ${money(proj.saldo0)} (saldo previsto no fim de ${labelMes(mesAtualISO()).nome}) · Saldo provável desconta mais ${money(proj.mediaVariavel)}/mês de gastos variáveis (média dos últimos 3 meses)</p>
 
     <h2 class="section-title">Plano de pagamento</h2>
     ${viewPlano(ym)}
@@ -1273,9 +1406,9 @@ function montarGraficos(){
 
   const ptFmt = v => (Number(v)||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
   const shortFmt = v => {
-    const n = Math.abs(Number(v)||0);
-    if(n >= 1000) return "R$"+(n/1000).toLocaleString("pt-BR",{maximumFractionDigits:1})+"k";
-    return "R$"+n.toLocaleString("pt-BR",{maximumFractionDigits:0});
+    const x = Number(v)||0, n = Math.abs(x), sg = x < 0 ? "−" : "";
+    if(n >= 1000) return sg+"R$"+(n/1000).toLocaleString("pt-BR",{maximumFractionDigits:1})+"k";
+    return sg+"R$"+n.toLocaleString("pt-BR",{maximumFractionDigits:0});
   };
   const gridOpts  = { color: C.rule, drawBorder:false };
   const tickBase  = { color: C.ink3, padding:6 };
@@ -1291,7 +1424,7 @@ function montarGraficos(){
     const n = 6;
     const meses   = Array.from({length:n},(_,i)=>addMes(base,-n+1+i));
     const labels  = meses.map(m=>{ const{nome,ano}=labelMes(m); return nome.slice(0,3)+"/"+String(ano).slice(2); });
-    const rendas  = meses.map(m=>rendaNoMes(m)||rendaFixaMensal());
+    const rendas  = meses.map(m=>rendaTotalMes(m));
     const gastos  = meses.map(m=>resumo(m).total);
     const sobras  = meses.map((_,i)=>rendas[i]-gastos[i]);
 
@@ -1412,7 +1545,7 @@ function montarGraficos(){
     const labels  = meses.map(m=>{ const{nome,ano}=labelMes(m); return nome.slice(0,3)+"/"+String(ano).slice(2); });
     const pago    = meses.map(m=>resumo(m).vlPago);
     const aberto  = meses.map(m=>resumo(m).vlAberto);
-    const rendas  = meses.map(m=>rendaNoMes(m)||rendaFixaMensal());
+    const rendas  = meses.map(m=>rendaTotalMes(m));
 
     charts.hist = new Chart(cvHistEl, {
       type:"bar",
