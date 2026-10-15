@@ -559,7 +559,7 @@ function planoPagamento(ym){
     const adiantou = dSug < venc;
     plano.push({ conta:d, data:dSug, dataVenc:venc, janela:escolhida, adiantou, tipo:"normal" });
   });
-  return { plano, janelas, saldosJanela, jUltAnt };
+  return { plano, janelas, saldosJanela, alocado, jUltAnt };
 }
 
 function distribuirSobra(ym){
@@ -2007,6 +2007,15 @@ async function salvarNova(form){
     if(outro) base.pagoPor = outro.id;
   }
 
+  // Bloqueio: conta (saída, em aberto) cujo vencimento cai numa janela sem saldo
+  if(base.tipo !== "entrada" && !base.pago && base.valor > 0){
+    const itens = nParc > 1
+      ? dividirParcelas(base.valor, nParc).map((v,i)=>({ valor:v, vencimento:dataParcela(base.vencimento, i) }))
+      : [{ valor:base.valor, vencimento:base.vencimento }];
+    const check = verificarNovaConta(itens);
+    if(!check.ok){ mostrarPopupSemSaldo(check); return; }
+  }
+
   if(nParc > 1){
     const valores = dividirParcelas(base.valor, nParc);
     const grp = uid();
@@ -2096,15 +2105,12 @@ async function salvarEdicao(form, id){
 
 async function quitar(id){
   const d = S.despesas.find(d=>d.id===id);
-  if(!d) return;
+  if(!d || d.pago) return;
   const dataPag = hojeISO();
-  await gravarDespesa(id, { pago: true, dataPagamento: dataPag });
-
-  // Atualiza o saldo base: desconta o valor da conta quitada do saldo atual calculado
-  // Precisamos recalcular depois que a despesa já foi marcada como paga no estado local
-  // O saldoAtual() já considera a despesa paga (via Firebase listener), mas para garantir
-  // consistência, calculamos o novo saldo manualmente aqui:
+  // Saldo calculado ANTES de gravar (sem a conta) → desconto aplicado uma única vez,
+  // independente de o Firebase já ter atualizado o estado local.
   const novoSaldo = saldoAtual() - (Number(d.valor) || 0);
+  await gravarDespesa(id, { pago: true, dataPagamento: dataPag });
   await salvarMeta({ saldoBase: novoSaldo, saldoBaseEm: dataPag });
 
   avisarN8N("quitar_despesa", {
@@ -2356,76 +2362,69 @@ async function salvarConfig(form){
 
 // Verifica se há saldo disponível na próxima janela de salário do mês ativo.
 // Retorna { ok: true } se pode adicionar, ou { ok: false, motivo, proxJanela, saldoDisp } se não pode.
-function verificarSaldoJanela(ym){
-  const hoje = hojeISO();
-  const { janelas, saldosJanela } = planoPagamento(ym);
-
-  // Encontra a janela "ativa": última cujo recebimento já ocorreu (data <= hoje)
-  // Se nenhuma ainda ocorreu, usa a primeira do mês
-  let idxAtiva = janelas.findIndex(j => j.data > hoje) - 1;
-  if(idxAtiva < 0) idxAtiva = janelas.length - 1;
-
-  // Saldo previsto nessa janela (após pagar todas as contas alocadas nela)
-  const saldoJanelaAtiva = saldosJanela[idxAtiva];
-
-  // Próxima janela futura (para exibir no popup)
-  const proxJanela = janelas.find(j => j.data > hoje) || janelas[janelas.length - 1];
-
-  // Contas alocadas nesta janela
-  const contasJanela = doMes(ym)
-    .filter(d => d.tipo !== "entrada" && !d.pago)
-    .reduce((s, d) => s + (Number(d.valor) || 0), 0);
-
-  if(saldoJanelaAtiva <= 0){
-    return {
-      ok: false,
-      saldoDisp: saldoJanelaAtiva,
-      saldoBase: idxAtiva > 0 ? saldosJanela[idxAtiva - 1] : saldoAtual(),
-      totalContasMes: contasJanela,
-      proxJanela,
-      janelaAtiva: janelas[idxAtiva]
-    };
-  }
-  return { ok: true };
+function verificarNovaConta(itens){
+  const mesHoje = hojeISO().slice(0,7);
+  const orig = S.despesas;
+  const sims = itens.map((it,i)=>({ id:"__sim"+i, descricao:"__sim", valor:Number(it.valor)||0, vencimento:it.vencimento, pago:false }));
+  const meses = [...new Set(itens.map(i=>i.vencimento.slice(0,7)))].filter(ym=>ym>=mesHoje).sort();
+  try{
+    S.despesas = orig.concat(sims);              // simula a conta já lançada
+    for(const ym of meses){
+      const { plano, janelas, saldosJanela, alocado } = planoPagamento(ym);
+      const simsMes = plano.filter(p => String(p.conta.id).startsWith("__sim") && p.janela != null);
+      if(!simsMes.length) continue;               // vence antes do dia 5 → cai no mês anterior
+      const idx = Math.min(...simsMes.map(p=>p.janela));
+      let acum = 0;
+      for(let i=0;i<janelas.length;i++){
+        acum += alocado[i];
+        if(i < idx) continue;
+        const simAcum = simsMes.filter(p=>p.janela<=i).reduce((s,p)=>s+(Number(p.conta.valor)||0),0);
+        const apos = saldosJanela[i] - acum;       // = "Saldo após" da tela do Plano
+        if(apos < 0){
+          const prox = janelas[i+1] || null;
+          return { ok:false, janela:janelas[i], saldoAntes:saldosJanela[i]-(acum-simAcum),
+                   valor:simAcum, saldoApos:apos, proxJanela:prox };
+        }
+      }
+    }
+  } finally { S.despesas = orig; }
+  return { ok:true };
 }
 
 // Exibe popup animado no centro da tela informando que não é possível adicionar a conta
 function mostrarPopupSemSaldo(info){
-  // Remove popup anterior se existir
   const antigo = document.getElementById("popup-sem-saldo");
   if(antigo) antigo.remove();
 
-  const { saldoDisp, saldoBase, totalContasMes, proxJanela, janelaAtiva } = info;
-
+  const { janela, saldoAntes, valor, saldoApos, proxJanela } = info;
   const overlay = document.createElement("div");
   overlay.id = "popup-sem-saldo";
   overlay.className = "popup-sem-saldo-overlay";
-  const janelaLabel = janelaAtiva ? `janela de <strong>${fmtData(janelaAtiva.data)}</strong>` : "janela atual";
-  const proxLabel   = proxJanela  ? `próximo salário em <strong>${fmtData(proxJanela.data)}</strong> (${money(proxJanela.valor)})` : "próximo salário";
   overlay.innerHTML = `
     <div class="popup-sem-saldo" role="alertdialog" aria-modal="true" aria-label="Sem saldo disponível">
       <div class="popup-sem-saldo-icon">🚫</div>
-      <h3 class="popup-sem-saldo-titulo">Saldo insuficiente</h3>
+      <h3 class="popup-sem-saldo-titulo">Não é possível lançar esta conta</h3>
       <p class="popup-sem-saldo-texto">
-        As contas desta ${janelaLabel} já comprometem todo o saldo disponível.
-        Aguarde o ${proxLabel} para lançar novas contas.
+        O vencimento cai na janela do salário de <strong>${fmtData(janela.data)}</strong>
+        (${esc(janela.recebidoPor)}) e o saldo dessa janela não cobre a conta.
+        ${proxJanela ? `O próximo salário só entra em <strong>${fmtData(proxJanela.data)}</strong> (${money(proxJanela.valor)}).` : ""}
       </p>
       <div class="popup-sem-saldo-info">
         <div class="popup-saldo-linha">
-          <span>Saldo na janela</span>
-          <span class="ok">${money(saldoBase)}</span>
+          <span>Saldo disponível na janela</span>
+          <span class="${saldoAntes < 0 ? "err" : "ok"}">${money(saldoAntes)}</span>
         </div>
         <div class="popup-saldo-linha">
-          <span>Contas pendentes</span>
-          <span class="err">− ${money(totalContasMes)}</span>
+          <span>Conta a lançar</span>
+          <span class="err">− ${money(valor)}</span>
         </div>
         <div class="popup-saldo-linha forte">
-          <span>Saldo restante</span>
-          <span class="${saldoDisp < 0 ? "err" : "warn"}">${money(saldoDisp)}</span>
+          <span>Saldo após</span>
+          <span class="err">${money(saldoApos)}</span>
         </div>
       </div>
       <p class="popup-sem-saldo-dica">
-        💡 Para lançar esta conta, quite ou exclua outras contas desta janela, ou verifique a renda na aba <strong>Renda</strong>.
+        💡 Escolha um vencimento em outra janela, reduza o valor, ou quite/exclua outras contas dessa janela.
       </p>
       <button class="btn-pri popup-sem-saldo-fechar">Entendido</button>
     </div>`;
@@ -2474,16 +2473,7 @@ document.addEventListener("click", e=>{
   if(janela){ S.janela = parseInt(janela.dataset.janela,10); destruirGraficos(); render(); return; }
 
   const nova = e.target.closest("[data-action='nova']");
-  if(nova){
-    // Verificar saldo disponível na janela do mês ativo antes de abrir o modal
-    const ym = S.mesAtivo;
-    const check = verificarSaldoJanela(ym);
-    if(!check.ok){
-      mostrarPopupSemSaldo(check);
-      return;
-    }
-    S.modal = { tipo:"nova", titulo:"Nova conta" }; render(); return;
-  }
+  if(nova){ S.modal = { tipo:"nova", titulo:"Nova conta" }; render(); return; }
 
   const saldo = e.target.closest("[data-action='saldo']");
   if(saldo){ S.modal = { tipo:"saldo", titulo:"Atualizar saldo" }; render(); return; }
