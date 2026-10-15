@@ -1057,3 +1057,85 @@ h1,h2,h3,h4{margin:0;}
   .renda-row-left{ flex-wrap:wrap; gap:6px; }
   .balanco-linha.total > span:last-child{ font-size:18px; }
 }
+
+/* ══════════════════════════════════════════════════
+   POPUP SEM SALDO
+   ══════════════════════════════════════════════════ */
+.popup-sem-saldo-overlay{
+  position:fixed; inset:0; z-index:10000;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,0,0);
+  backdrop-filter:blur(0px);
+  transition:background .25s, backdrop-filter .25s;
+  pointer-events:none;
+}
+.popup-sem-saldo-overlay.aberto{
+  background:rgba(0,0,0,.45);
+  backdrop-filter:blur(3px);
+  pointer-events:all;
+}
+.popup-sem-saldo{
+  background:var(--card);
+  border:1px solid var(--debit);
+  border-radius:20px;
+  padding:28px 24px 22px;
+  max-width:360px;
+  width:calc(100vw - 40px);
+  box-shadow:0 20px 60px rgba(0,0,0,.22), 0 0 0 4px var(--debit-soft);
+  display:flex; flex-direction:column; align-items:center; gap:10px;
+  text-align:center;
+  transform:scale(.88) translateY(24px);
+  opacity:0;
+  transition:transform .28s cubic-bezier(.34,1.56,.64,1), opacity .22s;
+}
+.popup-sem-saldo-overlay.aberto .popup-sem-saldo{
+  transform:scale(1) translateY(0);
+  opacity:1;
+}
+.popup-sem-saldo-overlay.saindo .popup-sem-saldo{
+  transform:scale(.92) translateY(16px);
+  opacity:0;
+}
+.popup-sem-saldo-icon{
+  font-size:44px; line-height:1;
+  animation:popup-bounce .6s cubic-bezier(.34,1.56,.64,1) .1s both;
+}
+@keyframes popup-bounce{
+  0%  { transform:scale(0) rotate(-15deg); }
+  60% { transform:scale(1.2) rotate(5deg); }
+  100%{ transform:scale(1) rotate(0); }
+}
+.popup-sem-saldo-titulo{
+  font-family:var(--serif); font-size:20px; color:var(--debit);
+  margin:0; line-height:1.2;
+}
+.popup-sem-saldo-texto{
+  font-size:14px; color:var(--ink-2); margin:0; line-height:1.55;
+}
+.popup-sem-saldo-texto strong{ color:var(--ink); }
+.popup-sem-saldo-info{
+  width:100%; background:var(--paper-2); border-radius:12px;
+  padding:12px 14px; display:flex; flex-direction:column; gap:6px;
+  margin:2px 0;
+}
+.popup-saldo-linha{
+  display:flex; justify-content:space-between; align-items:center;
+  font-size:13px; color:var(--ink-2);
+}
+.popup-saldo-linha.forte{
+  font-weight:700; font-size:14px; color:var(--ink);
+  padding-top:6px; margin-top:4px;
+  border-top:1px solid var(--rule-soft);
+}
+.popup-saldo-linha .ok { color:var(--c-ok); font-family:var(--mono); }
+.popup-saldo-linha .err{ color:var(--debit); font-family:var(--mono); }
+.popup-saldo-linha .warn{ color:var(--warn); font-family:var(--mono); }
+.popup-sem-saldo-dica{
+  font-size:12.5px; color:var(--ink-3); margin:0; line-height:1.55;
+  background:var(--warn-soft); border-radius:8px; padding:8px 10px;
+  text-align:left; width:100%;
+}
+.popup-sem-saldo-dica strong{ color:var(--ink-2); }
+.popup-sem-saldo-fechar{
+  margin-top:4px; width:100%;
+}
