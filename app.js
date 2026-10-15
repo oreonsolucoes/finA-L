@@ -2357,31 +2357,33 @@ async function salvarConfig(form){
 // Verifica se há saldo disponível na próxima janela de salário do mês ativo.
 // Retorna { ok: true } se pode adicionar, ou { ok: false, motivo, proxJanela, saldoDisp } se não pode.
 function verificarSaldoJanela(ym){
-  const hoje     = hojeISO();
-  const janelas  = janelasDoMes(ym);
+  const hoje = hojeISO();
+  const { janelas, saldosJanela } = planoPagamento(ym);
 
-  // Soma de contas já alocadas no mês (abertas + pagas)
-  const totalContasMes = doMes(ym)
-    .filter(d => d.tipo !== "entrada")
+  // Encontra a janela "ativa": última cujo recebimento já ocorreu (data <= hoje)
+  // Se nenhuma ainda ocorreu, usa a primeira do mês
+  let idxAtiva = janelas.findIndex(j => j.data > hoje) - 1;
+  if(idxAtiva < 0) idxAtiva = janelas.length - 1;
+
+  // Saldo previsto nessa janela (após pagar todas as contas alocadas nela)
+  const saldoJanelaAtiva = saldosJanela[idxAtiva];
+
+  // Próxima janela futura (para exibir no popup)
+  const proxJanela = janelas.find(j => j.data > hoje) || janelas[janelas.length - 1];
+
+  // Contas alocadas nesta janela
+  const contasJanela = doMes(ym)
+    .filter(d => d.tipo !== "entrada" && !d.pago)
     .reduce((s, d) => s + (Number(d.valor) || 0), 0);
 
-  // Renda total prevista no mês (salários fixos + entradas avulsas)
-  const rendaMes = rendaTotalMes(ym);
-
-  // Saldo disponível = renda do mês - total de contas já lançadas
-  const saldoDisp = rendaMes - totalContasMes;
-
-  // Encontra a próxima janela de salário a partir de hoje (ou primeira do mês se futuro)
-  const janelasFuturas = janelas.filter(j => j.data >= hoje);
-  const proxJanela = janelasFuturas.length > 0 ? janelasFuturas[0] : janelas[janelas.length - 1];
-
-  if(saldoDisp <= 0){
+  if(saldoJanelaAtiva <= 0){
     return {
       ok: false,
-      saldoDisp,
-      rendaMes,
-      totalContasMes,
-      proxJanela
+      saldoDisp: saldoJanelaAtiva,
+      saldoBase: idxAtiva > 0 ? saldosJanela[idxAtiva - 1] : saldoAtual(),
+      totalContasMes: contasJanela,
+      proxJanela,
+      janelaAtiva: janelas[idxAtiva]
     };
   }
   return { ok: true };
@@ -2393,36 +2395,37 @@ function mostrarPopupSemSaldo(info){
   const antigo = document.getElementById("popup-sem-saldo");
   if(antigo) antigo.remove();
 
-  const { saldoDisp, rendaMes, totalContasMes, proxJanela } = info;
+  const { saldoDisp, saldoBase, totalContasMes, proxJanela, janelaAtiva } = info;
 
   const overlay = document.createElement("div");
   overlay.id = "popup-sem-saldo";
   overlay.className = "popup-sem-saldo-overlay";
+  const janelaLabel = janelaAtiva ? `janela de <strong>${fmtData(janelaAtiva.data)}</strong>` : "janela atual";
+  const proxLabel   = proxJanela  ? `próximo salário em <strong>${fmtData(proxJanela.data)}</strong> (${money(proxJanela.valor)})` : "próximo salário";
   overlay.innerHTML = `
     <div class="popup-sem-saldo" role="alertdialog" aria-modal="true" aria-label="Sem saldo disponível">
       <div class="popup-sem-saldo-icon">🚫</div>
-      <h3 class="popup-sem-saldo-titulo">Sem saldo disponível</h3>
+      <h3 class="popup-sem-saldo-titulo">Saldo insuficiente</h3>
       <p class="popup-sem-saldo-texto">
-        Não é possível adicionar esta conta porque a renda prevista para
-        ${proxJanela ? `a janela de <strong>${fmtData(proxJanela.data)}</strong>` : "este período"}
-        já está totalmente comprometida.
+        As contas desta ${janelaLabel} já comprometem todo o saldo disponível.
+        Aguarde o ${proxLabel} para lançar novas contas.
       </p>
       <div class="popup-sem-saldo-info">
         <div class="popup-saldo-linha">
-          <span>Renda do mês</span>
-          <span class="ok">${money(rendaMes)}</span>
+          <span>Saldo na janela</span>
+          <span class="ok">${money(saldoBase)}</span>
         </div>
         <div class="popup-saldo-linha">
-          <span>Contas lançadas</span>
+          <span>Contas pendentes</span>
           <span class="err">− ${money(totalContasMes)}</span>
         </div>
         <div class="popup-saldo-linha forte">
-          <span>Saldo disponível</span>
+          <span>Saldo restante</span>
           <span class="${saldoDisp < 0 ? "err" : "warn"}">${money(saldoDisp)}</span>
         </div>
       </div>
       <p class="popup-sem-saldo-dica">
-        💡 Para lançar esta conta, quite ou exclua outras contas do mês, ou atualize a renda na aba <strong>Renda</strong>.
+        💡 Para lançar esta conta, quite ou exclua outras contas desta janela, ou verifique a renda na aba <strong>Renda</strong>.
       </p>
       <button class="btn-pri popup-sem-saldo-fechar">Entendido</button>
     </div>`;
