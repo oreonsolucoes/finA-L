@@ -2367,23 +2367,23 @@ function verificarNovaConta(itens){
   const orig = S.despesas;
   const sims = itens.map((it,i)=>({ id:"__sim"+i, descricao:"__sim", valor:Number(it.valor)||0, vencimento:it.vencimento, pago:false }));
   const meses = [...new Set(itens.map(i=>i.vencimento.slice(0,7)))].filter(ym=>ym>=mesHoje).sort();
+
   try{
-    S.despesas = orig.concat(sims);              // simula a conta já lançada
+    S.despesas = orig.concat(sims);                // simula a(s) conta(s) já lançada(s)
     for(const ym of meses){
-      const { plano, janelas, saldosJanela, alocado } = planoPagamento(ym);
-      const simsMes = plano.filter(p => String(p.conta.id).startsWith("__sim") && p.janela != null);
-      if(!simsMes.length) continue;               // vence antes do dia 5 → cai no mês anterior
-      const idx = Math.min(...simsMes.map(p=>p.janela));
+      const p = planoPagamento(ym);
+      // janela de cada conta = última janela de salário com data <= vencimento
+      const idxJanela = venc => { let k = -1; p.janelas.forEach((j,i)=>{ if(j.data <= venc) k = i; }); return k; };
       let acum = 0;
-      for(let i=0;i<janelas.length;i++){
-        acum += alocado[i];
-        if(i < idx) continue;
-        const simAcum = simsMes.filter(p=>p.janela<=i).reduce((s,p)=>s+(Number(p.conta.valor)||0),0);
-        const apos = saldosJanela[i] - acum;       // = "Saldo após" da tela do Plano
-        if(apos < 0){
-          const prox = janelas[i+1] || null;
-          return { ok:false, janela:janelas[i], saldoAntes:saldosJanela[i]-(acum-simAcum),
-                   valor:simAcum, saldoApos:apos, proxJanela:prox };
+      const saldosApos = p.janelas.map((_,i)=>{ acum += p.alocado[i]; return p.saldosJanela[i] - acum; }); // = "Saldo após" do Plano
+      for(const it of itens.filter(x=>x.vencimento.slice(0,7)===ym)){
+        const idx = idxJanela(it.vencimento);
+        if(idx < 0) continue;                      // vence antes do dia 5 → cai no mês anterior
+        if(saldosApos[idx] < 0){                   // só a janela do próprio vencimento é validada
+          const valor = itens.filter(x=>x.vencimento.slice(0,7)===ym && idxJanela(x.vencimento)<=idx)
+                             .reduce((t,x)=>t+(Number(x.valor)||0),0);
+          return { ok:false, janela:p.janelas[idx], saldoAntes:saldosApos[idx]+valor, valor,
+                   saldoApos:saldosApos[idx], proxJanela:p.janelas[idx+1] || null };
         }
       }
     }
