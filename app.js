@@ -15,8 +15,14 @@ const firebaseConfig = {
   appId: "1:928624497972:web:7204275e84d1ac40e84161"
 };
 
-const LIVRO_ID = "casa";
-window.LIVRO_ID = LIVRO_ID;
+// Cada usuário abre o livro indicado em usuarios/{uid}/livroAtivo.
+// "casa" é o livro original (antes do multiusuário). Quem já está em
+// livros/casa/membros (adicionado pelo console do Firebase) é vinculado
+// automaticamente no primeiro login.
+const LIVRO_LEGADO = "casa";
+const CONVITE_HORAS = 48;
+const POLITICA_VERSAO = 1;           // suba quando a política mudar de forma relevante → pede novo aceite
+const POLITICA_URL = "privacidade.html";
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
@@ -73,7 +79,9 @@ function diaUtilAnterior(iso){
 }
 
 function janelasPadrao(){
-  return S.janelasEntrada || JANELAS_ENTRADA;
+  if(S.janelasEntrada) return S.janelasEntrada;
+  // só o livro original herda os salários fixos de antes; livros novos começam vazios
+  return S.livroId === LIVRO_LEGADO ? JANELAS_ENTRADA : [];
 }
 function categoriasPadrao(){
   return S.categorias || CATEGORIAS;
@@ -91,6 +99,18 @@ const S = {
   authErr: "",
   authBusy: false,
 
+  // multiusuário
+  fase: "carregando",      // carregando | onboarding | app
+  usuario: null,           // usuarios/{uid}
+  livroId: null,
+  livroNome: "",
+  tipoLivro: "solo",       // solo | casal
+  membros: {},             // livros/{id}/membros
+  convitePendente: lerConviteDaUrl(),
+  conviteGerado: null,     // { codigo, link, expiraEm }
+  onb: { tipo: null, busy: false, err: "" },
+  aceiteNoCadastro: false,
+
   saldoBase: 0,
   saldoBaseEm: null,
   perfis: [],
@@ -105,8 +125,84 @@ const S = {
   janela: 6,
   filtroCat: null,
   modal: null,
-  tema: localStorage.getItem("tema") || "auto"
+  tema: (()=>{ try{ return localStorage.getItem("tema") || "auto"; }catch(e){ return "auto"; } })()
 };
+
+/* ── App instalável (PWA) ──────────────────────────────────── */
+let promptInstalar = null;   // Android/Chrome: evento guardado para mostrar o "Instalar"
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); promptInstalar = e; if(S.user) render(); });
+window.addEventListener("appinstalled", () => { promptInstalar = null; say("App instalado! Abra pelo ícone na tela inicial."); render(); });
+
+function appInstalado(){
+  return (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+}
+function plataforma(){
+  const ua = navigator.userAgent || "";
+  const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if(ios) return "ios";
+  if(/Android/.test(ua)) return "android";
+  return "desktop";
+}
+async function instalarApp(){
+  if(!promptInstalar) return;
+  promptInstalar.prompt();
+  try{ await promptInstalar.userChoice; }catch(e){}
+  promptInstalar = null; render();
+}
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+
+// Instruções de instalação por plataforma (configurações e banner)
+function textoInstalar(){
+  const pl = plataforma();
+  if(pl === "ios") return `No iPhone: toque em <strong>Compartilhar</strong> ${icShare()} na barra do navegador e depois em <strong>Adicionar à Tela de Início</strong>.`;
+  if(promptInstalar) return "Instale o app para abrir direto pelo ícone, em tela cheia.";
+  if(pl === "android") return "No menu do navegador (⋮), toque em <strong>Instalar app</strong> ou <strong>Adicionar à tela inicial</strong>.";
+  return "No celular, abra este endereço no navegador e adicione à tela inicial.";
+}
+function viewInstalarCfg(){
+  if(appInstalado()) return "";
+  return `<div class="cfg-instalar">
+    <h4>Instalar no celular</h4>
+    <p>${textoInstalar()}</p>
+    ${promptInstalar?`<button type="button" class="btn-pri btn-sm" data-action="instalar-app">Instalar app</button>`:""}
+  </div>`;
+}
+function viewBannerInstalar(){
+  if(appInstalado() || lsGet("instalarDispensado")) return "";
+  const pl = plataforma();
+  if(pl === "desktop" && !promptInstalar) return "";
+  return `<div class="banner-instalar">
+    <img src="icons/icon-192.png" alt="" width="40" height="40">
+    <div class="banner-instalar-txt"><strong>Leve o Livro de Contas no celular</strong><span>${textoInstalar()}</span></div>
+    ${promptInstalar?`<button type="button" class="btn-pri btn-sm" data-action="instalar-app">Instalar</button>`:""}
+    <button type="button" class="banner-fechar" data-action="dispensar-instalar" aria-label="Fechar">${icX()}</button>
+  </div>`;
+}
+
+// ?convite=CODIGO na URL (guardado na sessão para sobreviver ao cadastro)
+function lerConviteDaUrl(){
+  let c = null;
+  try{ c = new URLSearchParams(location.search).get("convite"); }catch(e){}
+  try{
+    if(c) sessionStorage.setItem("convite", c);
+    else  c = sessionStorage.getItem("convite");
+  }catch(e){}
+  return c && /^[A-Za-z0-9-]{8,64}$/.test(c) ? c : null;
+}
+function limparConvitePendente(){
+  S.convitePendente = null;
+  try{ sessionStorage.removeItem("convite"); }catch(e){}
+  try{
+    const u = new URL(location.href);
+    if(u.searchParams.has("convite")){ u.searchParams.delete("convite"); history.replaceState(null, "", u.toString()); }
+  }catch(e){}
+}
+function meuPerfilId(){
+  const m = S.user && S.membros[S.user.uid];
+  return (m && m.perfil) || (S.perfis[0] && S.perfis[0].id) || "p1";
+}
+function ehSolo(){ return S.perfis.length < 2; }
 
 document.documentElement.dataset.theme = S.tema;
 
@@ -199,6 +295,9 @@ function say(msg, erro){
 
 function avisarN8N(acao, dados){
   if(typeof window.dispararWebhookN8N !== "function") return;
+  // o webhook do n8n é o seu WhatsApp pessoal: só o livro original dispara.
+  // Para clientes, configure um webhook por livro antes de liberar.
+  if(S.livroId !== LIVRO_LEGADO) return;
   try{ window.dispararWebhookN8N(acao, dados); }
   catch(e){}
 }
@@ -233,17 +332,304 @@ function textoN8N(acao, d, extra){
    FIREBASE
    ═══════════════════════════════════════════════════════════════ */
 
-function refLivro(){ return db.ref("livros/"+LIVRO_ID); }
+function refLivro(){ return db.ref("livros/"+S.livroId); }
 
 let unsubs = [];
+
+/* ── Sessão: usuário → livro ─────────────────────────────────── */
+
+function erroFirebase(e){
+  const c = (e && (e.code||e.message)) || "";
+  if(/permission|PERMISSION_DENIED/i.test(c)) return "Sem permissão para essa ação.";
+  if(/network|offline|unavailable/i.test(c)) return "Sem conexão. Tente de novo.";
+  return "Algo deu errado. Tente de novo.";
+}
+
+async function iniciarSessao(user){
+  S.fase = "carregando"; render();
+  let usuario = null;
+  try{
+    const snap = await db.ref("usuarios/"+user.uid).once("value");
+    usuario = snap.val();
+  }catch(e){ usuario = null; }
+  S.usuario = usuario || null;
+
+  // 0) aceite da política de privacidade (cadastro novo já marcou o checkbox)
+  const aceitou = usuario && usuario.privacidade && usuario.privacidade.versao >= POLITICA_VERSAO;
+  if(!aceitou){
+    if(S.aceiteNoCadastro){
+      try{ await registrarAceite(); }catch(e){}
+    } else {
+      S.fase = "aceite"; render();
+      return;
+    }
+  }
+  S.aceiteNoCadastro = false;
+
+  // 1) chegou com convite → aceita e abre o livro do par
+  if(S.convitePendente){
+    const ok = await aceitarConvite(S.convitePendente);
+    if(ok) return;
+  }
+  // 2) já tem livro
+  if(usuario && usuario.livroAtivo){
+    abrirLivro(usuario.livroAtivo);
+    return;
+  }
+  // 3) já é membro do livro original (vinculado pelo console)
+  if(await vincularLegado(user)) return;
+  // 4) conta nova → onboarding
+  S.onb = { tipo: S.onb.tipo, busy:false, err:"" };
+  S.fase = "onboarding"; render();
+}
+
+async function registrarAceite(){
+  await salvarUsuario({ privacidade: { versao: POLITICA_VERSAO, aceitaEm: new Date().toISOString() } });
+}
+
+function viewAceite(){
+  return `<div class="gate">
+    <div class="gate-card onb-card">
+      <div class="gate-logo">${icLivro()}<h1>Antes de continuar</h1></div>
+      <p class="onb-nota" style="margin-bottom:14px;color:var(--ink-2)">
+        ${S.usuario && S.usuario.privacidade ? "Nossa Política de Privacidade mudou." : "Para usar o Livro de Contas, leia e aceite nossa Política de Privacidade."}
+        Ela explica quais dados guardamos, quem pode vê-los e como baixar ou excluir tudo.
+      </p>
+      <a class="btn-sec" style="display:block;text-align:center;text-decoration:none;margin-bottom:14px" href="${POLITICA_URL}" target="_blank" rel="noopener">Ler a Política de Privacidade</a>
+      <form id="aceite-form" class="gate-form">
+        <label class="gate-aceite"><input type="checkbox" name="aceite" required> Li e aceito a Política de Privacidade</label>
+        <button type="submit" class="gate-btn">Continuar</button>
+      </form>
+      <button class="gate-switch" data-action="logout">Sair</button>
+    </div>
+  </div>`;
+}
+
+let acaoAtalho = (()=>{ try{ return new URLSearchParams(location.search).get("acao"); }catch(e){ return null; } })();
+
+function abrirLivro(id){
+  if(acaoAtalho === "nova"){ S.modal = { tipo:"nova", titulo:"Nova conta" }; S.aba = "contas"; }
+  acaoAtalho = null;
+  S.livroId   = id;
+  window.LIVRO_ID = id;
+  S.dataReady = false;
+  S.despesas  = [];
+  S.fase      = "app";
+  ouvirDados();
+  render();
+}
+
+async function salvarUsuario(patch){
+  const u = S.user;
+  const base = { nome: (S.usuario && S.usuario.nome) || u.displayName || (u.email||"").split("@")[0], email: u.email || "" };
+  await db.ref("usuarios/"+u.uid).update(Object.assign(base, patch));
+  const snap = await db.ref("usuarios/"+u.uid).once("value");
+  S.usuario = snap.val();
+}
+
+/* ── Criar livro (onboarding) ─────────────────────────────────── */
+
+async function criarLivro(dados){
+  const u   = S.user;
+  const id  = uid();
+  const hoje = hojeISO();
+  const casal = dados.tipo === "casal";
+  const perfis = [{ id:"p1", nome: dados.meuNome, cor: PALETA_PESSOA[0] }];
+  if(casal) perfis.push({ id:"p2", nome: dados.nomePar || "Meu par", cor: PALETA_PESSOA[1] });
+  const janelas = [];
+  if(dados.meuSalario > 0) janelas.push({ dia: dados.meuDia, recebidoPor: dados.meuNome, valor: dados.meuSalario, antecipar: true });
+  if(casal && dados.salarioPar > 0) janelas.push({ dia: dados.diaPar, recebidoPor: perfis[1].nome, valor: dados.salarioPar, antecipar: true });
+  janelas.sort((a,b)=>a.dia-b.dia);
+
+  const ref = db.ref("livros/"+id);
+  // 1º a filiação (as regras só aceitam a meta de quem já é membro)
+  await ref.child("membros/"+u.uid).set({ papel:"dono", perfil:"p1", entrouEm: new Date().toISOString() });
+  const meta = {
+    nome: dados.nomeLivro, tipo: dados.tipo, criadoEm: new Date().toISOString(),
+    perfis, saldoBase: dados.saldo || 0, saldoBaseEm: hoje
+  };
+  if(janelas.length) meta.janelasEntrada = janelas;
+  await ref.child("meta").set(meta);
+  const livros = Object.assign({}, (S.usuario && S.usuario.livros) || {}, { [id]: dados.nomeLivro });
+  await salvarUsuario({ nome: dados.meuNome, livroAtivo: id, livros });
+  return id;
+}
+
+/* ── Convites ─────────────────────────────────────────────────── */
+
+function codigoConvite(){
+  const r = (crypto.randomUUID ? crypto.randomUUID() : uid()).replace(/-/g,"");
+  return r.slice(0,24);
+}
+
+async function gerarConvite(){
+  const livre = S.perfis.find(p => !Object.values(S.membros).some(m => m.perfil === p.id));
+  if(!livre){ say("Os dois lugares deste livro já estão ocupados.", true); return; }
+  const codigo  = codigoConvite();
+  const expiraEm = Date.now() + CONVITE_HORAS*3600e3;
+  try{
+    await db.ref("convites/"+codigo).set({
+      livro: S.livroId, criadoPor: S.user.uid, expiraEm, perfil: livre.id, nomeLivro: S.livroNome || ""
+    });
+    const u = new URL(location.href); u.search = ""; u.hash = "";
+    u.searchParams.set("convite", codigo);
+    S.conviteGerado = { codigo, link: u.toString(), expiraEm, para: livre.nome };
+    render();
+  }catch(e){ say(erroFirebase(e), true); }
+}
+
+async function aceitarConvite(codigo){
+  const u = S.user;
+  let c = null;
+  try{ c = (await db.ref("convites/"+codigo).once("value")).val(); }catch(e){}
+  const falhar = msg => { limparConvitePendente(); say(msg, true); return false; };
+  if(!c || !c.livro) return falhar("Convite não encontrado.");
+  if(c.usadoPor && c.usadoPor !== u.uid) return falhar("Esse convite já foi usado. Peça um novo.");
+  if(!c.usadoPor && c.expiraEm < Date.now()) return falhar("Esse convite expirou. Peça um novo.");
+  if(c.criadoPor === u.uid) return falhar("Esse convite é seu — envie o link para o seu par.");
+
+  try{
+    if(!c.usadoPor){
+      await db.ref().update({
+        ["livros/"+c.livro+"/membros/"+u.uid]: { papel:"membro", perfil: c.perfil || "p2", convite: codigo, entrouEm: new Date().toISOString() },
+        ["convites/"+codigo+"/usadoPor"]: u.uid
+      });
+    }
+    const livros = Object.assign({}, (S.usuario && S.usuario.livros) || {}, { [c.livro]: c.nomeLivro || "Livro do casal" });
+    await salvarUsuario({ livroAtivo: c.livro, livros });
+  }catch(e){ return falhar(erroFirebase(e)); }
+
+  limparConvitePendente();
+  abrirLivro(c.livro);
+  say("Pronto! Você entrou no livro do casal.");
+  return true;
+}
+
+/* ── Livro original (antes do multiusuário) ───────────────────── */
+
+async function vincularLegado(user){
+  try{
+    // só membros conseguem ler — para os demais as regras negam e seguimos para o onboarding
+    const m = (await db.ref("livros/"+LIVRO_LEGADO+"/membros/"+user.uid).once("value")).val();
+    if(!m) return false;
+    await salvarUsuario({ livroAtivo: LIVRO_LEGADO, livros: Object.assign({}, (S.usuario&&S.usuario.livros)||{}, { [LIVRO_LEGADO]: "Casa" }) });
+    abrirLivro(LIVRO_LEGADO);
+    return true;
+  }catch(e){ return false; }
+}
+
+/* ── LGPD: baixar e excluir ───────────────────────────────────── */
+
+function idsMeusLivros(){
+  const ids = new Set(Object.keys((S.usuario && S.usuario.livros) || {}));
+  if(S.livroId) ids.add(S.livroId);
+  return [...ids];
+}
+
+async function baixarMeusDados(){
+  const u = S.user;
+  const pacote = {
+    exportadoEm: new Date().toISOString(),
+    politicaVersao: POLITICA_VERSAO,
+    conta: { uid: u.uid, email: u.email || "", criadaEm: (u.metadata && u.metadata.creationTime) || null },
+    cadastro: S.usuario || null,
+    livros: {}
+  };
+  for(const id of idsMeusLivros()){
+    try{ pacote.livros[id] = (await db.ref("livros/"+id).once("value")).val(); }
+    catch(e){ pacote.livros[id] = { erro: "sem acesso (você não faz mais parte deste livro)" }; }
+  }
+  try{
+    const blob = new Blob([JSON.stringify(pacote, null, 2)], { type:"application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `livro-de-contas-meus-dados-${hojeISO()}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+    say("Arquivo com seus dados baixado.");
+  }catch(e){ say("Não foi possível gerar o arquivo.", true); }
+}
+
+async function excluirMinhaConta(form){
+  const fd   = new FormData(form);
+  const senha = String(fd.get("senha")||"");
+  const conf  = String(fd.get("confirma")||"").trim().toUpperCase();
+  const msg = document.getElementById("excluir-msg");
+  const erro = t => { if(msg){ msg.textContent = t; msg.style.display = ""; } };
+  if(conf !== "EXCLUIR") return erro('Digite EXCLUIR para confirmar.');
+  const btn = form.querySelector("button[type=submit]");
+  if(btn){ btn.disabled = true; btn.textContent = "Excluindo…"; }
+  const user = auth.currentUser;
+  try{
+    // 1) confirma a senha antes de apagar qualquer coisa
+    const cred = firebase.auth.EmailAuthProvider.credential(user.email, senha);
+    await user.reauthenticateWithCredential(cred);
+  }catch(e){
+    if(btn){ btn.disabled = false; btn.textContent = "Excluir para sempre"; }
+    return erro(/wrong-password|invalid-credential|invalid-login/i.test(e.code||"") ? "Senha incorreta." : "Não foi possível confirmar sua senha. Tente de novo.");
+  }
+  try{
+    desligarDados();
+    // 2) sai de cada livro; se for a única pessoa, apaga o livro inteiro
+    for(const id of idsMeusLivros()){
+      const ref = db.ref("livros/"+id);
+      let membros = {};
+      try{ membros = (await ref.child("membros").once("value")).val() || {}; }catch(e){ continue; }
+      if(!membros[user.uid]) continue;
+      const outros = Object.keys(membros).filter(k => k !== user.uid);
+      if(outros.length === 0){
+        await ref.child("despesas").remove();
+        await ref.child("meta").remove();
+      }
+      await ref.child("membros/"+user.uid).remove();
+    }
+    // 3) cadastro e login
+    await db.ref("usuarios/"+user.uid).remove();
+    await user.delete();
+    S.modal = null;
+    const o = document.getElementById("modal-overlay"); if(o) o.remove();
+    say("Sua conta e seus dados foram excluídos.");
+  }catch(e){
+    if(btn){ btn.disabled = false; btn.textContent = "Excluir para sempre"; }
+    erro("A exclusão não terminou: " + erroFirebase(e) + " Tente de novo ou escreva para o contato da Política de Privacidade.");
+  }
+}
+
+async function virarLivroCasal(){
+  const inp = document.getElementById("par-nome");
+  const nomePar = ((inp && inp.value) || "").trim().slice(0,20);
+  if(!nomePar){ say("Escreva o nome do seu par.", true); if(inp) inp.focus(); return; }
+  const usados = S.perfis.map(p=>p.id);
+  const novoId = ["p2","p3","p4"].find(id=>!usados.includes(id)) || "p2";
+  const perfis = S.perfis.concat([{ id:novoId, nome:nomePar, cor: PALETA_PESSOA[1] }]);
+  try{
+    await refLivro().child("meta").update({ perfis, tipo:"casal" });
+    S.perfis = perfis; S.tipoLivro = "casal";
+    await gerarConvite();
+  }catch(e){ say(erroFirebase(e), true); }
+}
+
+async function trocarDeLivro(id){
+  if(!id || id === S.livroId) return;
+  try{ await salvarUsuario({ livroAtivo:id }); }catch(e){ say(erroFirebase(e), true); return; }
+  desligarDados();
+  S.modal = null; S.conviteGerado = null;
+  const o = document.getElementById("modal-overlay"); if(o) o.remove();
+  abrirLivro(id);
+}
 
 function ouvirDados(){
   desligarDados();
   const rMeta = refLivro().child("meta");
   const rDesp = refLivro().child("despesas");
+  const rMemb = refLivro().child("membros");
+
+  const h3 = rMemb.on("value", snap => { S.membros = snap.val() || {}; render(); }, () => {});
 
   const h1 = rMeta.on("value", snap => {
     const m = snap.val() || {};
+    S.livroNome       = m.nome || (S.livroId === LIVRO_LEGADO ? "Casa" : "Meu livro");
+    S.tipoLivro       = m.tipo || (m.perfis && m.perfis.length >= 2 ? "casal" : "solo");
     S.saldoBase       = Number(m.saldoBase) || 0;
     S.saldoBaseEm     = m.saldoBaseEm || null;
     S.perfis          = m.perfis && m.perfis.length ? m.perfis : perfisPadrao();
@@ -265,17 +651,15 @@ function ouvirDados(){
 
   unsubs = [
     ()=> rMeta.off("value", h1),
-    ()=> rDesp.off("value", h2)
+    ()=> rDesp.off("value", h2),
+    ()=> rMemb.off("value", h3)
   ];
 }
 function desligarDados(){ unsubs.forEach(f=>f()); unsubs = []; }
 
 function perfisPadrao(){
-  const nome = (S.user && (S.user.displayName || (S.user.email||"").split("@")[0])) || "Você";
-  return [
-    { id:"p1", nome: nome.slice(0,20), cor: PALETA_PESSOA[0] },
-    { id:"p2", nome:"Parceiro(a)",     cor: PALETA_PESSOA[1] }
-  ];
+  const nome = (S.usuario && S.usuario.nome) || (S.user && (S.user.displayName || (S.user.email||"").split("@")[0])) || "Você";
+  return [ { id:"p1", nome: nome.slice(0,20), cor: PALETA_PESSOA[0] } ];
 }
 
 async function salvarMeta(patch){
@@ -283,7 +667,10 @@ async function salvarMeta(patch){
   catch(e){ say("Não foi possível salvar.", true); }
 }
 async function gravarDespesa(id, dados){
-  try{ await refLivro().child("despesas/"+id).update(dados); }
+  // o id é a chave do nó — não vai dentro do registro (as regras recusam campos extras)
+  const limpo = {};
+  Object.keys(dados).forEach(k => { if(k !== "id" && dados[k] !== undefined) limpo[k] = dados[k]; });
+  try{ await refLivro().child("despesas/"+id).update(limpo); }
   catch(e){ say("Não foi possível salvar a despesa.", true); }
 }
 async function apagarDespesa(id){
@@ -523,6 +910,7 @@ function projecao(n){
 function planoPagamento(ym){
   const hoje = hojeISO();
   const janelas = janelasDoMes(ym).map(j => Object.assign(j, { recebido: j.data <= hoje }));
+  if(!janelas.length) return { plano:[], janelas:[], saldosJanela:[], jUltAnt:null, semRenda:true };
   // última janela do mês anterior — contas que vencem antes do dia 5 vão aqui
   const ymAnt = addMes(ym, -1);
   const [yA,mA] = ymAnt.split("-").map(Number);
@@ -559,7 +947,7 @@ function planoPagamento(ym){
     const adiantou = dSug < venc;
     plano.push({ conta:d, data:dSug, dataVenc:venc, janela:escolhida, adiantou, tipo:"normal" });
   });
-  return { plano, janelas, saldosJanela, alocado, jUltAnt };
+  return { plano, janelas, saldosJanela, jUltAnt };
 }
 
 function distribuirSobra(ym){
@@ -708,6 +1096,7 @@ function materializarRecorrentes(){
           origem:        tmpl.id,
         });
         delete novo.recorrente;
+        delete novo.pagoPor;      // a cópia do mês ainda não foi paga por ninguém
         gravarDespesa(novo.id, novo);
       }
       cursor = addMes(cursor, 1);
@@ -722,6 +1111,9 @@ function materializarRecorrentes(){
 function render(){
   if(!S.authReady){ root.innerHTML = skeleton(); return; }
   if(!S.user){ root.innerHTML = viewGate(); montarGate(); return; }
+  if(S.fase === "carregando"){ root.innerHTML = skeleton(); return; }
+  if(S.fase === "aceite"){ root.innerHTML = viewAceite(); return; }
+  if(S.fase === "onboarding"){ root.innerHTML = viewOnboarding(); return; }
   if(!S.dataReady){ root.innerHTML = skeleton(); return; }
 
   const ym = S.mesAtivo;
@@ -737,6 +1129,7 @@ function render(){
       <div class="shell-left">
         ${viewMonthNav(ym)}
         <div class="shell-pad">
+          ${viewBannerInstalar()}
           ${viewToolbar()}
           ${viewLista(ym)}
         </div>
@@ -778,7 +1171,7 @@ function viewTop(){
   const tabsHtml = tabs.map(t =>
     `<button class="tab${S.aba===t.id?" active":""}" data-aba="${t.id}">${t.ic}<span>${t.label}</span></button>`
   ).join("");
-  return `<nav class="top-nav"><div class="top-brand">${icLivro()}<span>Livro de Contas</span></div><div class="top-tabs">${tabsHtml}</div><button class="btn-icon top-config" data-action="config" title="Configurações">${icGear()}</button></nav>`;
+  return `<nav class="top-nav"><div class="top-brand">${icLivro()}<span>${esc(S.livroNome || "Livro de Contas")}</span></div><div class="top-tabs">${tabsHtml}</div><button class="btn-icon top-config" data-action="config" title="Configurações">${icGear()}</button></nav>`;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -904,6 +1297,7 @@ function linha(d, extraClass=""){
   if(d.recorrente || d.origem) chips.push(`<span class="chip rec">↺ Recorrente</span>`);
   if(nParc > 1) chips.push(`<span class="chip parc">${iParc}/${nParc}</span>`);
   if(d.divisao === "individual") chips.push(`<span class="chip ind">Individual</span>`);
+  if(d.componentes?.length) chips.push(`<span class="chip comp-chip" title="${d.componentes.map(c=>c.descricao+' '+money(c.valor)).join(' · ')}">📋 ${d.componentes.length} ${d.componentes.length===1?"item":"itens"}</span>`);
   if(atras){
     chips.push(`<span class="chip atras">Atrasada ${diasDe(d.vencimento)}d</span>`);
   } else if(!pago && d.vencimento && !isEntr){
@@ -1157,8 +1551,15 @@ function sugIcon(ic){
    ═══════════════════════════════════════════════════════════════ */
 
 function viewPlano(ym){
-  const { plano, janelas, saldosJanela, jUltAnt } = planoPagamento(ym);
+  const { plano, janelas, saldosJanela, jUltAnt, semRenda } = planoPagamento(ym);
   const { nome, ano } = labelMes(ym);
+  if(semRenda){
+    return `<div class="plano-list">
+      <h2 class="section-title">Plano de pagamento · ${nome} ${ano}</h2>
+      <div class="empty-state">${icCalendar()}<p>Cadastre quanto e em que dia você recebe para o app montar o plano de pagamento.</p>
+        <button class="btn-sec" style="margin-top:10px" data-action="editar-renda-padrao">Cadastrar salário</button></div>
+    </div>`;
+  }
 
   // alocado por janela (precisa recalcular localmente para a exibição)
   const alocadoExib = janelas.map(()=>0);
@@ -1652,6 +2053,7 @@ function viewGate(){
   return `<div class="gate">
     <div class="gate-card">
       <div class="gate-logo">${icLivro()}<h1>Livro de Contas</h1></div>
+      ${S.convitePendente?`<p class="gate-convite">💌 Você foi convidado(a) para dividir um livro de contas. ${isLogin?"Entre":"Crie sua conta"} para aceitar.</p>`:""}
       ${S.authErr?`<p class="gate-err">${esc(S.authErr)}</p>`:""}
       <form id="gate-form" class="gate-form">
         <label class="gate-label">E-mail
@@ -1662,7 +2064,8 @@ function viewGate(){
         </label>
         ${!isLogin?`<label class="gate-label">Confirmar senha
           <input type="password" id="gate-pass2" autocomplete="new-password" required minlength="6" placeholder="••••••">
-        </label>`:""}
+        </label>
+        <label class="gate-aceite"><input type="checkbox" id="gate-aceite" required> Li e aceito a <a href="${POLITICA_URL}" target="_blank" rel="noopener">Política de Privacidade</a></label>`:""}
         <button type="submit" class="gate-btn${S.authBusy?" busy":""}" ${S.authBusy?"disabled":""}>
           ${S.authBusy?"Aguarde…":isLogin?"Entrar":"Criar conta"}
         </button>
@@ -1670,8 +2073,96 @@ function viewGate(){
       <button class="gate-switch" data-auth-switch>
         ${isLogin?"Não tem conta? Criar":"Já tem conta? Entrar"}
       </button>
+      <a class="gate-politica" href="${POLITICA_URL}" target="_blank" rel="noopener">Política de Privacidade</a>
     </div>
   </div>`;
+}
+
+/* ── Onboarding: conta nova escolhe solo ou casal ─────────────── */
+
+function viewOnboarding(){
+  const o = S.onb;
+  const tipo = o.tipo || "solo";
+  const v = o.vals || {};
+  const nomeSug = (S.usuario && S.usuario.nome) || (S.user && (S.user.displayName || (S.user.email||"").split("@")[0])) || "";
+  return `<div class="gate">
+    <div class="gate-card onb-card">
+      <div class="gate-logo">${icLivro()}<h1>Vamos começar</h1></div>
+      ${o.err?`<p class="gate-err">${esc(o.err)}</p>`:""}
+      <form id="onb-form" class="gate-form onb-form" data-tipo="${tipo}">
+        <span class="onb-q">Como você vai usar?</span>
+        <div class="onb-tipos">
+          <button type="button" class="onb-tipo${tipo==="solo"?" active":""}" data-onb-tipo="solo">
+            <strong>Só eu</strong><span>Minhas contas e minha renda</span>
+          </button>
+          <button type="button" class="onb-tipo${tipo==="casal"?" active":""}" data-onb-tipo="casal">
+            <strong>Eu e meu par</strong><span>Contas da casa, cada um com seu login</span>
+          </button>
+        </div>
+
+        <label class="gate-label">Seu nome
+          <input name="meuNome" required maxlength="20" value="${esc(v.meuNome!=null?v.meuNome:nomeSug.slice(0,20))}" autocomplete="given-name">
+        </label>
+        <label class="gate-label so-casal">Nome do seu par
+          <input name="nomePar" maxlength="20" placeholder="Ex.: Ana" value="${esc(v.nomePar||"")}">
+        </label>
+
+        <div class="onb-linha">
+          <label class="gate-label">Seu salário (R$)
+            <input name="meuSalario" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00" value="${esc(v.meuSalario||"")}">
+          </label>
+          <label class="gate-label onb-dia">Dia
+            <input name="meuDia" type="number" min="1" max="31" value="${esc(v.meuDia||"5")}">
+          </label>
+        </div>
+        <div class="onb-linha so-casal">
+          <label class="gate-label">Salário do par (R$)
+            <input name="salarioPar" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00" value="${esc(v.salarioPar||"")}">
+          </label>
+          <label class="gate-label onb-dia">Dia
+            <input name="diaPar" type="number" min="1" max="31" value="${esc(v.diaPar||"5")}">
+          </label>
+        </div>
+        <label class="gate-label">Quanto tem na conta hoje (R$)
+          <input name="saldo" type="number" step="0.01" inputmode="decimal" placeholder="0,00" value="${esc(v.saldo||"")}">
+        </label>
+        <p class="onb-nota so-casal">Depois de criar, você gera um link de convite nas configurações (⚙) e manda para o seu par entrar com o login dele(a).</p>
+        <p class="onb-nota so-solo">Dá para virar livro de casal depois, se quiser.</p>
+
+        <button type="submit" class="gate-btn${o.busy?" busy":""}" ${o.busy?"disabled":""}>${o.busy?"Criando…":"Criar meu livro"}</button>
+      </form>
+      ${S.usuario && S.usuario.livroAtivo ? `<button class="gate-switch" data-trocar-livro="${esc(S.usuario.livroAtivo)}">← Voltar para o meu livro</button>` : ""}
+      <button class="gate-switch" data-action="logout">Sair (${esc((S.user&&S.user.email)||"")})</button>
+      <a class="gate-politica" href="${POLITICA_URL}" target="_blank" rel="noopener">Política de Privacidade</a>
+    </div>
+  </div>`;
+}
+
+async function enviarOnboarding(form){
+  const fd = new FormData(form);
+  const vals = Object.fromEntries(fd.entries());
+  const num = k => parseFloat(String(fd.get(k)||"").replace(",", ".")) || 0;
+  const dia = k => Math.min(31, Math.max(1, parseInt(fd.get(k)||"5",10) || 5));
+  const tipo = form.dataset.tipo === "casal" ? "casal" : "solo";
+  const meuNome = String(fd.get("meuNome")||"").trim().slice(0,20);
+  const nomePar = String(fd.get("nomePar")||"").trim().slice(0,20);
+  if(!meuNome){ S.onb = { tipo, vals, busy:false, err:"Informe seu nome." }; render(); return; }
+  if(tipo==="casal" && !nomePar){ S.onb = { tipo, vals, busy:false, err:"Informe o nome do seu par." }; render(); return; }
+  S.onb = { tipo, vals, busy:true, err:"" }; render();
+  try{
+    const id = await criarLivro({
+      tipo, meuNome, nomePar,
+      nomeLivro: tipo==="casal" ? `Casa de ${meuNome} e ${nomePar}`.slice(0,40) : `Contas de ${meuNome}`.slice(0,40),
+      meuSalario: num("meuSalario"), meuDia: dia("meuDia"),
+      salarioPar: num("salarioPar"), diaPar: dia("diaPar"),
+      saldo: num("saldo")
+    });
+    S.onb = { tipo:null, busy:false, err:"" };
+    abrirLivro(id);
+    say(tipo==="casal" ? "Livro criado! Agora convide seu par em ⚙ Configurações." : "Livro criado!");
+  }catch(e){
+    S.onb = { tipo, vals, busy:false, err: erroFirebase(e) }; render();
+  }
 }
 
 function montarGate(){
@@ -1687,6 +2178,8 @@ async function autenticar(){
   const pass  = (document.getElementById("gate-pass")||{}).value||"";
   const pass2 = (document.getElementById("gate-pass2")||{}).value||"";
   if(S.authMode==="signup" && pass!==pass2){ S.authErr="As senhas não coincidem."; render(); return; }
+  if(S.authMode==="signup" && !(document.getElementById("gate-aceite")||{}).checked){ S.authErr="Para criar a conta, aceite a Política de Privacidade."; render(); return; }
+  S.aceiteNoCadastro = S.authMode === "signup";
   S.authBusy = true; S.authErr = ""; render();
   try{
     if(S.authMode==="login"){
@@ -1742,10 +2235,91 @@ function montarModal(cfg){
   if(fi) setTimeout(()=>fi.focus(), 100);
 }
 
-function pillsPessoas(){
+// Bloco de convite dentro das configurações
+function viewConviteCfg(){
+  const cg = S.conviteGerado;
+  if(cg){
+    const wa = "https://wa.me/?text=" + encodeURIComponent(`Entra no nosso livro de contas: ${cg.link}`);
+    const horas = Math.max(1, Math.round((cg.expiraEm - Date.now())/3600e3));
+    return `<div class="cfg-convite">
+      <strong>Link de convite para ${esc(cg.para)}</strong>
+      <input id="convite-link" readonly value="${esc(cg.link)}" onclick="this.select()">
+      <div class="cfg-convite-acoes">
+        <button type="button" class="btn-pri btn-sm" data-action="copiar-convite">Copiar link</button>
+        <a class="btn-sec btn-sm" href="${esc(wa)}" target="_blank" rel="noopener">Enviar no WhatsApp</a>
+      </div>
+      <span class="cfg-convite-nota">Vale por ${horas}h e só pode ser usado uma vez.</span>
+    </div>`;
+  }
+  if(ehSolo()){
+    return `<div class="cfg-convite">
+      <strong>Dividir com alguém?</strong>
+      <span class="cfg-convite-nota">Transforme em livro de casal: seu par entra com o próprio login e vocês veem as mesmas contas.</span>
+      <input id="par-nome" maxlength="20" placeholder="Nome do seu par">
+      <button type="button" class="btn-sec btn-sm" data-action="virar-casal">Transformar em casal e gerar convite</button>
+    </div>`;
+  }
+  const livre = S.perfis.find(p => !Object.values(S.membros).some(m => m.perfil === p.id));
+  if(!livre) return "";
+  return `<div class="cfg-convite">
+    <strong>${esc(livre.nome)} ainda não tem login</strong>
+    <span class="cfg-convite-nota">Gere um link e mande para ${esc(livre.nome)} criar a conta e entrar neste livro.</span>
+    <button type="button" class="btn-pri btn-sm" data-action="gerar-convite">Gerar link de convite</button>
+  </div>`;
+}
+
+// Troca entre livros (ex.: "Pessoal" e "Casa")
+function viewLivrosCfg(){
+  const livros = (S.usuario && S.usuario.livros) || {};
+  const ids = Object.keys(livros);
+  return `<div class="cfg-livros">
+    ${ids.length > 1 ? `<h4>Seus livros</h4>
+      ${ids.map(id=>`<button type="button" class="cfg-livro${id===S.livroId?" active":""}" data-trocar-livro="${esc(id)}">
+        ${esc(typeof livros[id]==="string" ? livros[id] : id)}${id===S.livroId?" · aberto":""}
+      </button>`).join("")}` : ""}
+    <button type="button" class="gate-switch" data-action="novo-livro">+ Criar outro livro</button>
+  </div>`;
+}
+
+function pillsPessoas(sel){
+  const atual = sel || meuPerfilId();
   return S.perfis.map(p=>
-    `<label class="pill-pessoa"><input type="radio" name="adicionadoPor" value="${p.id}"> <span style="background:${p.cor}">${inicial(p.nome)}</span> ${esc(p.nome)}</label>`
+    `<label class="pill-pessoa"><input type="radio" name="adicionadoPor" value="${p.id}"${p.id===atual?" checked":""}> <span style="background:${p.cor}">${inicial(p.nome)}</span> ${esc(p.nome)}</label>`
   ).join("");
+}
+
+/* ── componentes da fatura ──────────────────────────────── */
+function _compRowHtml(c={}, i){
+  return `<div class="comp-row" data-comp-idx="${i}">
+    <input type="text" class="comp-desc" placeholder="Ex: Supermercado" value="${esc(c.descricao||'')}" maxlength="80">
+    <input type="number" class="comp-val" placeholder="0,00" min="0.01" step="0.01" value="${c.valor||''}">
+    <button type="button" class="btn-icon comp-del" title="Remover item">✕</button>
+  </div>`;
+}
+
+function _coletarComponentes(){
+  const rows = document.querySelectorAll("#comp-lista .comp-row");
+  const comps = [];
+  rows.forEach(row=>{
+    const desc = row.querySelector(".comp-desc")?.value?.trim() || "";
+    const val  = parseFloat(row.querySelector(".comp-val")?.value) || 0;
+    if(desc || val > 0) comps.push({ descricao: desc, valor: val });
+  });
+  return comps;
+}
+
+function _atualizarSomaComp(){
+  const rows = document.querySelectorAll("#comp-lista .comp-row");
+  let soma = 0;
+  rows.forEach(r=>{ soma += parseFloat(r.querySelector(".comp-val")?.value)||0; });
+  const somaEl = document.getElementById("comp-soma");
+  if(!somaEl) return;
+  if(rows.length === 0){ somaEl.style.display = "none"; return; }
+  const valorEl = document.getElementById("m-val");
+  const total   = parseFloat(valorEl?.value)||0;
+  const diff    = Math.abs(total - soma) > 0.005;
+  somaEl.style.display = "flex";
+  somaEl.innerHTML = `<span>Total dos itens:</span><strong style="font-family:var(--mono);font-size:13px;color:${diff&&total>0?"var(--warn)":"var(--accent)"}">${money(soma)}</strong>${diff&&total>0?`<span style="color:var(--ink-3)">/ ${money(total)} da fatura</span>`:""}`;
 }
 
 function conteudoModal(cfg){
@@ -1782,11 +2356,17 @@ function conteudoModal(cfg){
           ${categoriasPadrao().map(c=>`<option value="${c.id}"${d.categoria===c.id?" selected":""}>${c.nome}</option>`).join("")}
         </select>
       </div>
+      <div class="campo" id="campo-comp" style="${(d.categoria||'outros')==='fatura'&&!isEntrada?'':'display:none'}">
+        <label>Itens da fatura <span style="font-size:10px;font-weight:400;color:var(--ink-3);text-transform:none;letter-spacing:0">(opcional)</span></label>
+        <div id="comp-lista">${(d.componentes||[]).map((c,i)=>_compRowHtml(c,i)).join('')}</div>
+        <button type="button" id="comp-add" class="btn-sec btn-sm" style="margin-top:6px;width:100%;justify-content:center">＋ Adicionar item</button>
+        <div id="comp-soma" style="display:${(d.componentes||[]).length?'flex':'none'};margin-top:6px;font-size:12px;color:var(--ink-3);justify-content:flex-end;align-items:center;gap:6px;flex-wrap:wrap"></div>
+      </div>
       <div class="campo">
         <label for="m-venc">Vencimento</label>
         <input id="m-venc" name="vencimento" type="date" value="${d.vencimento||ym+"-01"}">
       </div>
-      <div class="campo" id="campo-div"${isEntrada?' style="display:none"':""}>
+      ${ehSolo()?"":`<div class="campo" id="campo-div"${isEntrada?' style="display:none"':""}>
         <label>Divisão</label>
         <div class="seg-ctrl">
           <button type="button" class="seg${(d.divisao||"compartilhada")==="compartilhada"?" active":""}" data-seg-div="compartilhada">Compartilhada</button>
@@ -1795,8 +2375,8 @@ function conteudoModal(cfg){
       </div>
       <div class="campo">
         <label>Quem adicionou</label>
-        <div class="pills-pessoas">${pillsPessoas()}</div>
-      </div>
+        <div class="pills-pessoas">${pillsPessoas(d.adicionadoPor)}</div>
+      </div>`}
       ${cfg.tipo==="nova"?`<div class="campo">
         <label for="m-parc">Parcelar em</label>
         <select id="m-parc" name="parcelas">
@@ -1870,10 +2450,13 @@ function conteudoModal(cfg){
   }
 
   if(cfg.tipo === "renda-padrao"){
-    const jan = janelasPadrao();
+    // salários existentes + 1 linha vazia para adicionar; valor vazio/zero remove a linha
+    const jan = janelasPadrao().concat([{ dia:5, recebidoPor: pessoa(meuPerfilId()).nome, valor:"", antecipar:true, _novo:true }]);
     return `<form id="modal-form">
+      <p style="font-size:12px;color:var(--ink-3);margin-bottom:10px">Cada linha é um pagamento que cai todo mês. Deixe o valor em branco para remover.</p>
+      <input type="hidden" name="jp_total" value="${jan.length}">
       ${jan.map((j,i)=>`<fieldset style="border:1px solid var(--rule-soft);border-radius:var(--r);padding:12px 14px;margin-bottom:10px">
-        <legend style="font-size:12px;color:var(--ink-3);padding:0 6px">${esc(j.recebidoPor)}</legend>
+        <legend style="font-size:12px;color:var(--ink-3);padding:0 6px">${j._novo?"+ Adicionar pagamento":esc(j.recebidoPor)}</legend>
         <div class="campo">
           <label>Quem recebe</label>
           <input name="jp_nome_${i}" value="${esc(j.recebidoPor)}" maxlength="20" placeholder="Nome">
@@ -1933,18 +2516,70 @@ function conteudoModal(cfg){
           <button type="button" class="seg${S.tema==="dark"?" active":""}" data-tema="dark">Escuro</button>
         </div>
       </div>
-      <h4>Perfis</h4>
-      ${S.perfis.map((p,i)=>`<div class="campo">
-        <label>Pessoa ${i+1}</label>
-        <input name="perfil_${p.id}" value="${esc(p.nome)}" maxlength="20" placeholder="Nome">
-      </div>`).join("")}
+      <div class="campo">
+        <label for="cfg-livro-nome">Nome do livro</label>
+        <input id="cfg-livro-nome" name="livroNome" value="${esc(S.livroNome||"")}" maxlength="40">
+      </div>
+      <h4>${ehSolo()?"Seu perfil":"Pessoas"}</h4>
+      ${S.perfis.map((p,i)=>{
+        const membro = Object.values(S.membros).find(m=>m.perfil===p.id);
+        const souEu  = p.id === meuPerfilId() && S.membros[S.user.uid];
+        const status = souEu ? "você" : membro ? "com login" : (ehSolo() ? "" : "sem login ainda");
+        return `<div class="campo">
+          <label>${ehSolo()?"Seu nome":`Pessoa ${i+1}`}${status?` <span class="cfg-status${membro?" ok":""}">${status}</span>`:""}</label>
+          <input name="perfil_${p.id}" value="${esc(p.nome)}" maxlength="20" placeholder="Nome">
+        </div>`;
+      }).join("")}
+      ${viewConviteCfg()}
       <div style="margin-top:16px">
         <button type="button" class="btn-sec" style="width:100%" data-action="editar-categorias">🏷 Editar categorias</button>
+      </div>
+      ${viewLivrosCfg()}
+      ${viewInstalarCfg()}
+      <div class="cfg-conta">
+        <span>${esc((S.user&&S.user.email)||"")}</span>
+        <button type="button" class="btn-sec btn-sm" data-action="logout">Sair da conta</button>
+      </div>
+      <div class="cfg-privacidade">
+        <h4>Seus dados</h4>
+        <button type="button" class="btn-sec btn-sm" data-action="baixar-dados">Baixar meus dados</button>
+        <button type="button" class="btn-sec btn-sm cfg-perigo" data-action="excluir-conta">Excluir minha conta</button>
+        <a href="${POLITICA_URL}" target="_blank" rel="noopener">Política de Privacidade</a>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn-danger" data-action="limpar">Limpar tudo</button>
         <button type="button" class="btn-sec" data-action="fechar">Cancelar</button>
         <button type="submit" class="btn-pri">Salvar</button>
+      </div>
+    </form>`;
+  }
+
+  if(cfg.tipo === "excluir-conta"){
+    const outros = Object.keys(S.membros).filter(k => k !== S.user.uid).length;
+    return `<form id="excluir-form">
+      <div class="excluir-aviso">
+        <p><strong>Isso não pode ser desfeito.</strong> Vamos apagar:</p>
+        <ul>
+          <li>seu login (${esc(S.user.email||"")}) e seu cadastro;</li>
+          ${outros
+            ? `<li>sua participação no livro <strong>${esc(S.livroNome)}</strong>. O livro e as contas continuam com a outra pessoa;</li>`
+            : `<li>o livro <strong>${esc(S.livroNome)}</strong> com todas as contas, entradas e salários;</li>`}
+          <li>qualquer outro livro em que você seja a única pessoa.</li>
+        </ul>
+        <p>Se quiser guardar uma cópia, use <a href="#" data-action="baixar-dados">Baixar meus dados</a> antes.</p>
+      </div>
+      <div class="campo">
+        <label for="exc-senha">Sua senha</label>
+        <input id="exc-senha" name="senha" type="password" autocomplete="current-password" required>
+      </div>
+      <div class="campo">
+        <label for="exc-conf">Digite EXCLUIR para confirmar</label>
+        <input id="exc-conf" name="confirma" type="text" autocomplete="off" required>
+      </div>
+      <p id="excluir-msg" class="gate-err" style="display:none"></p>
+      <div class="modal-footer">
+        <button type="button" class="btn-sec" data-action="fechar">Cancelar</button>
+        <button type="submit" class="btn-danger">Excluir para sempre</button>
       </div>
     </form>`;
   }
@@ -1986,34 +2621,29 @@ async function salvarNova(form){
   const div  = form.querySelector("[data-seg-div].active")?.dataset.segDiv || "compartilhada";
   const pagas= get("pago") === "on";
   const nParc= parseInt(get("parcelas")||"1", 10) || 1;
-  const adicionadoPor = get("adicionadoPor") || S.perfis[0]?.id || "p1";
+  const adicionadoPor = get("adicionadoPor") || meuPerfilId();
   const pagoPorOutro  = get("pagoPorOutro") === "on";
+
+  const compsCat = get("categoria") || "outros";
+  const compsArr = compsCat === "fatura" ? _coletarComponentes() : [];
 
   const base = {
     descricao:   get("descricao").trim(),
     valor:       parseFloat(get("valor")) || 0,
-    categoria:   get("categoria") || "outros",
+    categoria:   compsCat,
     vencimento:  get("vencimento") || hojeISO(),
     divisao:     div,
     recorrente:  get("recorrente") === "on",
     adicionadoPor,
     pago:        pagas,
     dataPagamento: pagas ? (get("dataPagamento")||hojeISO()) : null,
-    tipo:        tipo === "entrada" ? "entrada" : undefined
+    tipo:        tipo === "entrada" ? "entrada" : undefined,
+    ...(compsArr.length ? { componentes: compsArr } : {})
   };
   if(!base.tipo) delete base.tipo;
   if(pagoPorOutro && S.perfis.length >= 2){
     const outro = S.perfis.find(p=>p.id!==adicionadoPor);
     if(outro) base.pagoPor = outro.id;
-  }
-
-  // Bloqueio: conta (saída, em aberto) cujo vencimento cai numa janela sem saldo
-  if(base.tipo !== "entrada" && !base.pago && base.valor > 0){
-    const itens = nParc > 1
-      ? dividirParcelas(base.valor, nParc).map((v,i)=>({ valor:v, vencimento:dataParcela(base.vencimento, i) }))
-      : [{ valor:base.valor, vencimento:base.vencimento }];
-    const check = verificarNovaConta(itens);
-    if(!check.ok){ mostrarPopupSemSaldo(check); return; }
   }
 
   if(nParc > 1){
@@ -2051,22 +2681,29 @@ async function salvarNova(form){
 async function salvarEdicao(form, id){
   const fd   = new FormData(form);
   const get  = k => fd.get(k) || "";
+  const d0   = S.despesas.find(x=>x.id===id) || {};
   const tipo = form.querySelector("[data-seg-tipo].active")?.dataset.segTipo || "saida";
-  const div  = form.querySelector("[data-seg-div].active")?.dataset.segDiv || "compartilhada";
+  const div  = form.querySelector("[data-seg-div].active")?.dataset.segDiv || d0.divisao || "compartilhada";
   const pagas= get("pago") === "on";
-  const adicionadoPor = get("adicionadoPor") || S.perfis[0]?.id || "p1";
+  const adicionadoPor = get("adicionadoPor") || d0.adicionadoPor || meuPerfilId();
+
+  const patchCat   = get("categoria") || "outros";
+  const patchComps = patchCat === "fatura" ? _coletarComponentes() : [];
+  // se houver componentes, incluir; senão enviar null para limpar o campo no Firebase
+  const compsPatch = patchComps.length ? patchComps : null;
 
   const patch = {
     descricao:    get("descricao").trim(),
     valor:        parseFloat(get("valor")) || 0,
-    categoria:    get("categoria") || "outros",
+    categoria:    patchCat,
     vencimento:   get("vencimento") || hojeISO(),
     divisao:      div,
     recorrente:   get("recorrente") === "on",
     adicionadoPor,
     pago:         pagas,
     dataPagamento: pagas ? (get("dataPagamento")||hojeISO()) : null,
-    tipo:         tipo === "entrada" ? "entrada" : null
+    tipo:         tipo === "entrada" ? "entrada" : null,
+    componentes:  compsPatch
   };
   if(!patch.tipo) delete patch.tipo;
 
@@ -2105,14 +2742,9 @@ async function salvarEdicao(form, id){
 
 async function quitar(id){
   const d = S.despesas.find(d=>d.id===id);
-  if(!d || d.pago) return;
+  if(!d) return;
   const dataPag = hojeISO();
-  // Saldo calculado ANTES de gravar (sem a conta) → desconto aplicado uma única vez,
-  // independente de o Firebase já ter atualizado o estado local.
-  const novoSaldo = saldoAtual() - (Number(d.valor) || 0);
   await gravarDespesa(id, { pago: true, dataPagamento: dataPag });
-  await salvarMeta({ saldoBase: novoSaldo, saldoBaseEm: dataPag });
-
   avisarN8N("quitar_despesa", {
     id,
     descricao:     d.descricao,
@@ -2300,14 +2932,20 @@ async function salvarDist(form){
 
 async function salvarRendaPadrao(form){
   const fd = new FormData(form);
-  const jan = janelasPadrao();
-  const novas = jan.map((_,i)=>({
-    recebidoPor: (fd.get(`jp_nome_${i}`)||"").trim() || jan[i].recebidoPor,
-    dia:         parseInt(fd.get(`jp_dia_${i}`)||jan[i].dia, 10) || jan[i].dia,
-    valor:       parseFloat(fd.get(`jp_val_${i}`)) || jan[i].valor,
-    antecipar:   fd.get(`jp_ant_${i}`) === "on"
-  }));
-  await salvarMeta({ janelasEntrada: novas });
+  const total = parseInt(fd.get("jp_total")||"0", 10);
+  const novas = [];
+  for(let i = 0; i < total; i++){
+    const valor = parseFloat(fd.get(`jp_val_${i}`));
+    if(!(valor > 0)) continue;
+    novas.push({
+      recebidoPor: (fd.get(`jp_nome_${i}`)||"").trim() || pessoa(meuPerfilId()).nome,
+      dia:         Math.min(31, Math.max(1, parseInt(fd.get(`jp_dia_${i}`)||"5", 10) || 5)),
+      valor,
+      antecipar:   fd.get(`jp_ant_${i}`) === "on"
+    });
+  }
+  novas.sort((a,b)=>a.dia-b.dia);
+  await salvarMeta({ janelasEntrada: novas.length ? novas : null });
   fecharModalDom();
   say("Salários atualizados!");
 }
@@ -2351,101 +2989,22 @@ async function salvarConfig(form){
     const nome = (fd.get("perfil_"+p.id)||"").trim() || p.nome;
     return Object.assign({}, p, { nome });
   });
-  await salvarMeta({ perfis: perfisAtuais });
+  const patch = { perfis: perfisAtuais };
+  const nomeLivro = String(fd.get("livroNome")||"").trim().slice(0,40);
+  if(nomeLivro && nomeLivro !== S.livroNome){
+    patch.nome = nomeLivro;
+    try{ await db.ref("usuarios/"+S.user.uid+"/livros/"+S.livroId).set(nomeLivro); }catch(e){}
+    if(S.usuario && S.usuario.livros) S.usuario.livros[S.livroId] = nomeLivro;
+  }
+  // mantém o nome do salário fixo em sincronia com o nome da pessoa
+  const ren = {};
+  S.perfis.forEach(p => { const n = perfisAtuais.find(x=>x.id===p.id).nome; if(n !== p.nome) ren[p.nome] = n; });
+  if(Object.keys(ren).length && S.janelasEntrada){
+    patch.janelasEntrada = S.janelasEntrada.map(j => ren[j.recebidoPor] ? Object.assign({}, j, { recebidoPor: ren[j.recebidoPor] }) : j);
+  }
+  await salvarMeta(patch);
   fecharModalDom();
   say("Configurações salvas!");
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   VERIFICAÇÃO DE SALDO NA JANELA (plano de pagamento)
-   ═══════════════════════════════════════════════════════════════ */
-
-// Verifica se há saldo disponível na próxima janela de salário do mês ativo.
-// Retorna { ok: true } se pode adicionar, ou { ok: false, motivo, proxJanela, saldoDisp } se não pode.
-function verificarNovaConta(itens){
-  const mesHoje = hojeISO().slice(0,7);
-  const orig = S.despesas;
-  const sims = itens.map((it,i)=>({ id:"__sim"+i, descricao:"__sim", valor:Number(it.valor)||0, vencimento:it.vencimento, pago:false }));
-  const meses = [...new Set(itens.map(i=>i.vencimento.slice(0,7)))].filter(ym=>ym>=mesHoje).sort();
-
-  try{
-    S.despesas = orig.concat(sims);                // simula a(s) conta(s) já lançada(s)
-    for(const ym of meses){
-      const p = planoPagamento(ym);
-      // janela de cada conta = última janela de salário com data <= vencimento
-      const idxJanela = venc => { let k = -1; p.janelas.forEach((j,i)=>{ if(j.data <= venc) k = i; }); return k; };
-      let acum = 0;
-      const saldosApos = p.janelas.map((_,i)=>{ acum += p.alocado[i]; return p.saldosJanela[i] - acum; }); // = "Saldo após" do Plano
-      for(const it of itens.filter(x=>x.vencimento.slice(0,7)===ym)){
-        const idx = idxJanela(it.vencimento);
-        if(idx < 0) continue;                      // vence antes do dia 5 → cai no mês anterior
-        if(saldosApos[idx] < 0){                   // só a janela do próprio vencimento é validada
-          const valor = itens.filter(x=>x.vencimento.slice(0,7)===ym && idxJanela(x.vencimento)<=idx)
-                             .reduce((t,x)=>t+(Number(x.valor)||0),0);
-          return { ok:false, janela:p.janelas[idx], saldoAntes:saldosApos[idx]+valor, valor,
-                   saldoApos:saldosApos[idx], proxJanela:p.janelas[idx+1] || null };
-        }
-      }
-    }
-  } finally { S.despesas = orig; }
-  return { ok:true };
-}
-
-// Exibe popup animado no centro da tela informando que não é possível adicionar a conta
-function mostrarPopupSemSaldo(info){
-  const antigo = document.getElementById("popup-sem-saldo");
-  if(antigo) antigo.remove();
-
-  const { janela, saldoAntes, valor, saldoApos, proxJanela } = info;
-  const overlay = document.createElement("div");
-  overlay.id = "popup-sem-saldo";
-  overlay.className = "popup-sem-saldo-overlay";
-  overlay.innerHTML = `
-    <div class="popup-sem-saldo" role="alertdialog" aria-modal="true" aria-label="Sem saldo disponível">
-      <div class="popup-sem-saldo-icon">🚫</div>
-      <h3 class="popup-sem-saldo-titulo">Não é possível lançar esta conta</h3>
-      <p class="popup-sem-saldo-texto">
-        O vencimento cai na janela do salário de <strong>${fmtData(janela.data)}</strong>
-        (${esc(janela.recebidoPor)}) e o saldo dessa janela não cobre a conta.
-        ${proxJanela ? `O próximo salário só entra em <strong>${fmtData(proxJanela.data)}</strong> (${money(proxJanela.valor)}).` : ""}
-      </p>
-      <div class="popup-sem-saldo-info">
-        <div class="popup-saldo-linha">
-          <span>Saldo disponível na janela</span>
-          <span class="${saldoAntes < 0 ? "err" : "ok"}">${money(saldoAntes)}</span>
-        </div>
-        <div class="popup-saldo-linha">
-          <span>Conta a lançar</span>
-          <span class="err">− ${money(valor)}</span>
-        </div>
-        <div class="popup-saldo-linha forte">
-          <span>Saldo após</span>
-          <span class="err">${money(saldoApos)}</span>
-        </div>
-      </div>
-      <p class="popup-sem-saldo-dica">
-        💡 Escolha um vencimento em outra janela, reduza o valor, ou quite/exclua outras contas dessa janela.
-      </p>
-      <button class="btn-pri popup-sem-saldo-fechar">Entendido</button>
-    </div>`;
-
-  document.body.appendChild(overlay);
-
-  // Animar entrada
-  requestAnimationFrame(() => overlay.classList.add("aberto"));
-
-  // Fechar ao clicar no fundo ou no botão
-  function fechar(){
-    overlay.classList.remove("aberto");
-    overlay.classList.add("saindo");
-    setTimeout(() => overlay.remove(), 280);
-  }
-
-  overlay.querySelector(".popup-sem-saldo-fechar").addEventListener("click", fechar);
-  overlay.addEventListener("click", e => { if(e.target === overlay) fechar(); });
-
-  // Auto-fechar após 6 segundos
-  setTimeout(() => { if(document.getElementById("popup-sem-saldo")) fechar(); }, 6000);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2453,6 +3012,43 @@ function mostrarPopupSemSaldo(info){
    ═══════════════════════════════════════════════════════════════ */
 
 document.addEventListener("click", e=>{
+  // ── onboarding / sessão ──
+  const onbTipo = e.target.closest("[data-onb-tipo]");
+  if(onbTipo){
+    const form = document.getElementById("onb-form");
+    document.querySelectorAll("[data-onb-tipo]").forEach(b=>b.classList.toggle("active", b===onbTipo));
+    if(form) form.dataset.tipo = onbTipo.dataset.onbTipo;
+    S.onb.tipo = onbTipo.dataset.onbTipo;
+    return;
+  }
+
+  const inst = e.target.closest("[data-action='instalar-app']");
+  if(inst){ instalarApp(); return; }
+  const dispInst = e.target.closest("[data-action='dispensar-instalar']");
+  if(dispInst){ lsSet("instalarDispensado","1"); render(); return; }
+
+  const baixar = e.target.closest("[data-action='baixar-dados']");
+  if(baixar){ e.preventDefault(); baixarMeusDados(); return; }
+  const excluirConta = e.target.closest("[data-action='excluir-conta']");
+  if(excluirConta){ S.modal = { tipo:"excluir-conta", titulo:"Excluir minha conta" }; render(); return; }
+
+  const gerarConv = e.target.closest("[data-action='gerar-convite']");
+  if(gerarConv){ gerarConvite(); return; }
+  const copiarConv = e.target.closest("[data-action='copiar-convite']");
+  if(copiarConv && S.conviteGerado){
+    const txt = S.conviteGerado.link;
+    (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject())
+      .then(()=>say("Link copiado!"))
+      .catch(()=>{ const i=document.getElementById("convite-link"); if(i){ i.select(); } say("Selecione e copie o link.", true); });
+    return;
+  }
+  const virarCasal = e.target.closest("[data-action='virar-casal']");
+  if(virarCasal){ virarLivroCasal(); return; }
+  const trocarLivro = e.target.closest("[data-trocar-livro]");
+  if(trocarLivro){ trocarDeLivro(trocarLivro.dataset.trocarLivro); return; }
+  const novoLivro = e.target.closest("[data-action='novo-livro']");
+  if(novoLivro){ desligarDados(); S.modal = null; S.livroId = null; S.onb = { tipo:null, busy:false, err:"" }; S.fase = "onboarding"; render(); return; }
+
   const t = e.target.closest("[data-aba]");
   if(t){ S.aba = t.dataset.aba; destruirGraficos(); render(); return; }
 
@@ -2544,6 +3140,26 @@ document.addEventListener("click", e=>{
   const fechar = e.target.closest("[data-action='fechar']");
   if(fechar){ fecharModalDom(); return; }
 
+  // componentes da fatura: adicionar item
+  const compAdd = e.target.closest("#comp-add");
+  if(compAdd){
+    const lista = document.getElementById("comp-lista");
+    if(lista){
+      const idx = lista.querySelectorAll(".comp-row").length;
+      lista.insertAdjacentHTML("beforeend", _compRowHtml({}, idx));
+      lista.querySelectorAll(".comp-row:last-child .comp-desc")[0]?.focus();
+      _atualizarSomaComp();
+    }
+    return;
+  }
+  // componentes da fatura: remover item
+  const compDel = e.target.closest(".comp-del");
+  if(compDel){
+    compDel.closest(".comp-row")?.remove();
+    _atualizarSomaComp();
+    return;
+  }
+
   const excluirBtn = e.target.closest("[data-action='excluir'][data-id]");
   if(excluirBtn){ excluir(excluirBtn.dataset.id); return; }
 
@@ -2597,12 +3213,19 @@ document.addEventListener("click", e=>{
 
   // logout
   const logout = e.target.closest("[data-action='logout']");
-  if(logout){ auth.signOut(); return; }
+  if(logout){ S.modal = null; const o=document.getElementById("modal-overlay"); if(o) o.remove(); auth.signOut(); return; }
 });
 
 document.addEventListener("submit", e=>{
   e.preventDefault();
   const form = e.target;
+  if(form.id === "onb-form"){ if(!S.onb.busy) enviarOnboarding(form); return; }
+  if(form.id === "aceite-form"){
+    S.aceiteNoCadastro = true;     // iniciarSessao grava o aceite e segue
+    iniciarSessao(S.user);
+    return;
+  }
+  if(form.id === "excluir-form"){ excluirMinhaConta(form); return; }
   if(form.id !== "modal-form") return;
   const cfg = S.modal;
   if(!cfg) return;
@@ -2626,6 +3249,21 @@ document.addEventListener("submit", e=>{
 
 // "pago" checkbox → mostra/esconde data de pagamento
 document.addEventListener("change", e=>{
+  // categoria → mostrar/ocultar seção componentes fatura
+  const catSel = e.target.closest("#m-cat");
+  if(catSel){
+    const campoComp = document.getElementById("campo-comp");
+    if(campoComp){
+      const show = catSel.value === "fatura";
+      campoComp.style.display = show ? "" : "none";
+      if(show) _atualizarSomaComp();
+    }
+    return;
+  }
+  // input de valor ou comp-val → atualizar soma
+  if(e.target.closest("#comp-lista") || e.target.closest("#m-val")){
+    _atualizarSomaComp();
+  }
   const cb = e.target.closest("#m-pago");
   if(cb){
     const campo = document.getElementById("campo-dpag");
@@ -2670,6 +3308,12 @@ document.addEventListener("change", e=>{
   }
 });
 
+document.addEventListener("input", e=>{
+  if(e.target.closest("#comp-lista .comp-val") || e.target.closest("#m-val")){
+    _atualizarSomaComp();
+  }
+});
+
 document.addEventListener("keydown", e=>{
   if(e.key === "Escape" && S.modal) fecharModalDom();
 });
@@ -2678,6 +3322,9 @@ document.addEventListener("keydown", e=>{
    ÍCONES SVG
    ═══════════════════════════════════════════════════════════════ */
 
+function icShare(){
+  return `<svg class="ic-inline" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="ícone compartilhar"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>`;
+}
 function icPlus(){
   return `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
 }
@@ -2718,18 +3365,27 @@ function icLivro(){
    BOOT
    ═══════════════════════════════════════════════════════════════ */
 
+if(S.convitePendente) S.authMode = "signup";
+
 auth.onAuthStateChanged(user=>{
   S.user      = user || null;
   S.authReady = true;
   S.authBusy  = false;
+  desligarDados();
+  S.dataReady = false;
+  S.despesas  = [];
+  S.membros   = {};
+  S.livroId   = null;
+  S.livroNome = "";
+  S.usuario   = null;
+  S.conviteGerado = null;
+  S.janelasEntrada = null; S.distConfig = null; S.categorias = null; S.perfis = [];
   if(user){
-    ouvirDados(); // materializarRecorrentes é chamado dentro do callback de dados
+    iniciarSessao(user); // abre o livro → ouvirDados → materializarRecorrentes
   } else {
-    desligarDados();
-    S.dataReady = false;
-    S.despesas  = [];
+    S.fase = "carregando";
+    render();
   }
-  render();
 });
 
 render();
