@@ -118,6 +118,7 @@ const S = {
 
   mesAtivo: mesAtualISO(),
   filtro: "todas",
+  busca: "",
   aba: "contas",
   janelasEntrada: null,
   distConfig: null,
@@ -1130,6 +1131,7 @@ function render(){
         ${viewMonthNav(ym)}
         <div class="shell-pad">
           ${viewBannerInstalar()}
+          ${viewProgresso(ym)}
           ${viewToolbar()}
           ${viewLista(ym)}
         </div>
@@ -1238,6 +1240,11 @@ function viewToolbar(){
     `<button class="cat-chip${S.filtroCat===c.id?" active":""}" data-filtro-cat="${c.id}" style="--chip-cor:${c.cor}">${c.nome}</button>`
   ).join("");
   return `<div class="toolbar">
+    <div class="busca-wrap">
+      <span class="busca-ic">🔍</span>
+      <input id="busca-input" class="busca-input" type="search" placeholder="Buscar por nome ou categoria…" value="${esc(S.busca)}" autocomplete="off">
+      ${S.busca?`<button class="busca-clear" data-action="limpar-busca" title="Limpar busca">✕</button>`:""}
+    </div>
     <div class="filter-pills">
       ${filtros.map(f=>`<button class="pill${S.filtro===f.id?" active":""}" data-filtro="${f.id}">${f.label}</button>`).join("")}
     </div>
@@ -1247,10 +1254,18 @@ function viewToolbar(){
 
 function filtrar(lista){
   let r = lista;
-  if(S.filtro === "abertas")   r = r.filter(d=>!d.pago && d.tipo!=="entrada");
+  if(S.filtro === "abertas")        r = r.filter(d=>!d.pago && d.tipo!=="entrada");
   else if(S.filtro === "pagas")     r = r.filter(d=>d.pago);
   else if(S.filtro === "atrasadas") r = r.filter(atrasada);
   if(S.filtroCat) r = r.filter(d=>d.categoria===S.filtroCat);
+  if(S.busca){
+    const q = S.busca.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+    r = r.filter(d=>{
+      const desc = (d.descricao||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+      const catNome = (cat(d.categoria).nome||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+      return desc.includes(q) || catNome.includes(q);
+    });
+  }
   return r;
 }
 
@@ -1258,11 +1273,32 @@ function filtrar(lista){
    LISTA DE DESPESAS
    ═══════════════════════════════════════════════════════════════ */
 
+function viewProgresso(ym){
+  const base = doMes(ym).filter(d=>d.tipo!=="entrada");
+  if(!base.length) return "";
+  const pagas = base.filter(d=>d.pago).length;
+  const total = base.length;
+  const pct   = Math.round(pagas/total*100);
+  const todas = pagas === total;
+  return `<div class="progresso-mes">
+    <div class="progresso-topo">
+      <span>${todas?"🎉 Todas as contas pagas!":"💳 Contas pagas este mês"}</span>
+      <strong>${pagas} de ${total} (${pct}%)</strong>
+    </div>
+    <div class="progresso-barra"><div class="progresso-fill${todas?" done":""}" style="width:${pct}%"></div></div>
+  </div>`;
+}
+
 function viewLista(ym){
   const base  = doMes(ym);
   const lista = filtrar(base);
   if(lista.length === 0){
-    return `<div class="empty-state">${icCheck()}<p>Nenhuma conta aqui.</p></div>`;
+    if(S.busca) return `<div class="empty-state"><span style="font-size:32px">🔍</span><p>Nenhum resultado para "<strong>${esc(S.busca)}</strong>".</p><p style="font-size:13px;color:var(--ink-3)">Tente outro termo ou limpe a busca.</p></div>`;
+    if(S.filtro==="atrasadas") return `<div class="empty-state">✅<p>Nenhuma conta atrasada.</p><p style="font-size:13px;color:var(--ink-3)">Ótimo, está tudo em dia!</p></div>`;
+    if(S.filtro==="abertas")   return `<div class="empty-state">🎉<p>Nenhuma conta em aberto.</p><p style="font-size:13px;color:var(--ink-3)">Todas as contas deste mês estão pagas!</p></div>`;
+    if(S.filtro==="pagas")     return `<div class="empty-state">📋<p>Nenhuma conta paga ainda.</p><p style="font-size:13px;color:var(--ink-3)">Quando você quitar uma conta, ela aparece aqui.</p></div>`;
+    if(base.length === 0)      return `<div class="empty-state">📋<p>Nenhuma conta cadastrada.</p><p style="font-size:13px;color:var(--ink-3)">Toque em <strong>+</strong> para adicionar sua primeira conta.</p></div>`;
+    return `<div class="empty-state">🔍<p>Nenhuma conta encontrada.</p></div>`;
   }
   // group by: entradas primeiro, depois por categoria
   const entradas  = lista.filter(d=>d.tipo==="entrada");
@@ -1299,12 +1335,13 @@ function linha(d, extraClass=""){
   if(d.divisao === "individual") chips.push(`<span class="chip ind">Individual</span>`);
   if(d.componentes?.length) chips.push(`<span class="chip comp-chip" title="${d.componentes.map(c=>c.descricao+' '+money(c.valor)).join(' · ')}">📋 ${d.componentes.length} ${d.componentes.length===1?"item":"itens"}</span>`);
   if(atras){
-    chips.push(`<span class="chip atras">Atrasada ${diasDe(d.vencimento)}d</span>`);
+    const dias = diasDe(d.vencimento);
+    chips.push(`<span class="chip atras">🔴 ${dias===1?"Venceu ontem":"Venceu há "+dias+" dias"}</span>`);
   } else if(!pago && d.vencimento && !isEntr){
     const diasVence = Math.ceil((new Date(d.vencimento+"T00:00:00") - new Date(hojeISO()+"T00:00:00")) / 864e5);
-    if(diasVence >= 0 && diasVence <= 5){
-      chips.push(`<span class="chip vence">${diasVence===0?"⚡ Vence hoje":`⏰ Vence em ${diasVence}d`}</span>`);
-    }
+    if(diasVence === 0)      chips.push(`<span class="chip vence urgente">⚡ Vence hoje!</span>`);
+    else if(diasVence === 1) chips.push(`<span class="chip vence">⚠️ Vence amanhã</span>`);
+    else if(diasVence <= 5)  chips.push(`<span class="chip vence">⏰ Vence em ${diasVence} dias</span>`);
   }
 
   return `<div class="row${pago?" pago":""}${atras?" atrasada":""}${isEntr?" entrada-row":""}" data-id="${d.id}">
@@ -2288,6 +2325,42 @@ function pillsPessoas(sel){
   ).join("");
 }
 
+/* ── sugestão de categoria ───────────────────────────────── */
+// Devolve o id da categoria mais usada em despesas com descrição parecida
+function _sugerirCategoria(desc){
+  if(!desc || desc.length < 3) return null;
+  const q = desc.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+  const freq = {};
+  S.despesas.forEach(d=>{
+    if(d.tipo==="entrada") return;
+    const nome = (d.descricao||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+    if(nome.includes(q) || q.includes(nome.slice(0,Math.max(3,nome.length-2)))){
+      freq[d.categoria] = (freq[d.categoria]||0) + 1;
+    }
+  });
+  const top = Object.entries(freq).sort((a,b)=>b[1]-a[1])[0];
+  return top ? top[0] : null;
+}
+
+/* ── duplicar despesa ───────────────────────────────────── */
+function duplicarDespesa(id){
+  const d = S.despesas.find(x=>x.id===id);
+  if(!d) return;
+  S.modal = {
+    tipo: "nova",
+    titulo: "Nova conta (duplicada)",
+    dado: {
+      descricao: d.descricao,
+      valor: d.valor,
+      categoria: d.categoria,
+      divisao: d.divisao,
+      adicionadoPor: d.adicionadoPor,
+      vencimento: hojeISO()
+    }
+  };
+  render();
+}
+
 /* ── componentes da fatura ──────────────────────────────── */
 // Retorna true para qualquer categoria que represente fatura de cartão
 function _ehFatura(cat){ return cat === "fatura" || cat === "cartes"; }
@@ -2346,7 +2419,8 @@ function conteudoModal(cfg){
       </div>
       <div class="campo">
         <label for="m-desc">Descrição *</label>
-        <input id="m-desc" name="descricao" required placeholder="Ex: Conta de luz" value="${esc(d.descricao||"")}">
+        <input id="m-desc" name="descricao" required placeholder="Ex: Conta de luz" value="${esc(d.descricao||"")}" autocomplete="off">
+        <div id="cat-sug" class="cat-sug" style="display:none"></div>
       </div>
       <div class="campo">
         <label for="m-val">Valor (R$) *</label>
@@ -2420,6 +2494,7 @@ function conteudoModal(cfg){
 
       <div class="modal-footer">
         ${cfg.tipo==="editar"?`<button type="button" class="btn-danger" data-action="excluir" data-id="${d.id}">Excluir</button>`:""}
+        ${cfg.tipo==="editar"?`<button type="button" class="btn-sec" data-action="duplicar" data-id="${d.id}" title="Criar uma cópia desta conta">⧉ Duplicar</button>`:""}
         <button type="button" class="btn-sec" data-action="fechar">Cancelar</button>
         <button type="submit" class="btn-pri">${cfg.tipo==="nova"?"Salvar":"Atualizar"}</button>
       </div>
@@ -2757,7 +2832,14 @@ async function quitar(id){
     dataPagamento: dataPag,
     texto: textoN8N("quitar_despesa", d, { dataPagamento: dataPag })
   });
-  say("Quitada! ✓");
+  // mensagem motivacional baseada no progresso do mês
+  const mes = doMes(S.mesAtivo).filter(x=>x.tipo!=="entrada");
+  const pagas = mes.filter(x=>x.pago).length;
+  const total = mes.length;
+  let msg = `✅ ${d.descricao} paga!`;
+  if(pagas === total && total > 0) msg = "🎉 Todas as contas do mês pagas! Muito bem!";
+  else if(pagas > 0 && total > 0) msg = `✅ Paga! ${pagas} de ${total} contas quitadas este mês.`;
+  say(msg);
 }
 
 async function duplicar(id){
@@ -3142,6 +3224,20 @@ document.addEventListener("click", e=>{
   const fechar = e.target.closest("[data-action='fechar']");
   if(fechar){ fecharModalDom(); return; }
 
+  const duplicar = e.target.closest("[data-action='duplicar'][data-id]");
+  if(duplicar){ fecharModalDom(); duplicarDespesa(duplicar.dataset.id); return; }
+
+  const limparBusca = e.target.closest("[data-action='limpar-busca']");
+  if(limparBusca){ S.busca = ""; render(); return; }
+
+  const catSugBtn = e.target.closest("[data-cat-sug]");
+  if(catSugBtn){
+    const catEl = document.getElementById("m-cat");
+    if(catEl){ catEl.value = catSugBtn.dataset.catSug; catEl.dispatchEvent(new Event("change")); }
+    document.getElementById("cat-sug").style.display = "none";
+    return;
+  }
+
   // componentes da fatura: adicionar item
   const compAdd = e.target.closest("#comp-add");
   if(compAdd){
@@ -3313,6 +3409,30 @@ document.addEventListener("change", e=>{
 document.addEventListener("input", e=>{
   if(e.target.closest("#comp-lista .comp-val") || e.target.closest("#m-val")){
     _atualizarSomaComp();
+  }
+  // busca na lista
+  if(e.target.id === "busca-input"){
+    S.busca = e.target.value;
+    render();
+    // restaura foco no campo após re-render
+    const inp = document.getElementById("busca-input");
+    if(inp){ inp.focus(); const v = inp.value.length; inp.setSelectionRange(v,v); }
+    return;
+  }
+  // sugestão de categoria ao digitar descrição
+  if(e.target.id === "m-desc"){
+    const sug = document.getElementById("cat-sug");
+    if(!sug) return;
+    const catId = _sugerirCategoria(e.target.value);
+    if(catId){
+      const c = cat(catId);
+      const catAtual = document.getElementById("m-cat")?.value;
+      if(catAtual && catAtual !== catId && catAtual === "outros"){
+        sug.style.display = "block";
+        sug.innerHTML = `<span>💡 Sugestão:</span><button type="button" class="cat-sug-btn" data-cat-sug="${catId}" style="--chip-cor:${c.cor}">${c.nome}</button>`;
+      } else { sug.style.display = "none"; }
+    } else { sug.style.display = "none"; }
+    return;
   }
 });
 
