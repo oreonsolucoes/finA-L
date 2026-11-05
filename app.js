@@ -721,7 +721,7 @@ function rendaFixaEntre(de, ate){
 function saldoAtual(){
   const desde = S.saldoBaseEm;
   const depois = S.despesas.filter(d =>
-    d.pago && d.dataPagamento && (!desde || d.dataPagamento > desde)
+    d.pago && d.dataPagamento && (!desde || d.dataPagamento >= desde)
   );
   const entradas = depois.filter(d => d.tipo==="entrada")
     .reduce((s,d) => s + (Number(d.valor)||0), 0);
