@@ -2289,6 +2289,8 @@ function pillsPessoas(sel){
 }
 
 /* ── componentes da fatura ──────────────────────────────── */
+// Retorna true para qualquer categoria que represente fatura de cartão
+function _ehFatura(cat){ return cat === "fatura" || cat === "cartes"; }
 function _compRowHtml(c={}, i){
   return `<div class="comp-row" data-comp-idx="${i}">
     <input type="text" class="comp-desc" placeholder="Ex: Supermercado" value="${esc(c.descricao||'')}" maxlength="80">
@@ -2356,7 +2358,7 @@ function conteudoModal(cfg){
           ${categoriasPadrao().map(c=>`<option value="${c.id}"${d.categoria===c.id?" selected":""}>${c.nome}</option>`).join("")}
         </select>
       </div>
-      <div class="campo" id="campo-comp" style="${(d.categoria||'outros')==='fatura'&&!isEntrada?'':'display:none'}">
+      <div class="campo" id="campo-comp" style="${_ehFatura(d.categoria||'outros')&&!isEntrada?'':'display:none'}">
         <label>Itens da fatura <span style="font-size:10px;font-weight:400;color:var(--ink-3);text-transform:none;letter-spacing:0">(opcional)</span></label>
         <div id="comp-lista">${(d.componentes||[]).map((c,i)=>_compRowHtml(c,i)).join('')}</div>
         <button type="button" id="comp-add" class="btn-sec btn-sm" style="margin-top:6px;width:100%;justify-content:center">＋ Adicionar item</button>
@@ -2625,7 +2627,7 @@ async function salvarNova(form){
   const pagoPorOutro  = get("pagoPorOutro") === "on";
 
   const compsCat = get("categoria") || "outros";
-  const compsArr = compsCat === "fatura" ? _coletarComponentes() : [];
+  const compsArr = _ehFatura(compsCat) ? _coletarComponentes() : [];
 
   const base = {
     descricao:   get("descricao").trim(),
@@ -2688,7 +2690,7 @@ async function salvarEdicao(form, id){
   const adicionadoPor = get("adicionadoPor") || d0.adicionadoPor || meuPerfilId();
 
   const patchCat   = get("categoria") || "outros";
-  const patchComps = patchCat === "fatura" ? _coletarComponentes() : [];
+  const patchComps = _ehFatura(patchCat) ? _coletarComponentes() : [];
   // se houver componentes, incluir; senão enviar null para limpar o campo no Firebase
   const compsPatch = patchComps.length ? patchComps : null;
 
@@ -3254,7 +3256,7 @@ document.addEventListener("change", e=>{
   if(catSel){
     const campoComp = document.getElementById("campo-comp");
     if(campoComp){
-      const show = catSel.value === "fatura";
+      const show = _ehFatura(catSel.value);
       campoComp.style.display = show ? "" : "none";
       if(show) _atualizarSomaComp();
     }
