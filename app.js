@@ -2265,7 +2265,7 @@ function montarModal(cfg){
   document.body.appendChild(over);
   requestAnimationFrame(()=> over.classList.add("aberto"));
   over.addEventListener("click", e=>{
-    if(e.target === over) fecharModalDom();
+    // Não fecha ao clicar fora — evita perda de progresso no formulário
   });
   // focus first input
   const fi = over.querySelector("input,select,textarea");
