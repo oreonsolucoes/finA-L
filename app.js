@@ -3055,10 +3055,15 @@ async function salvarSaldo(form){
   const val = parseFloat(fd.get("saldoBase"));
   if(isNaN(val)){ say("Informe o saldo real.", true); return; }
   const hoje = hojeISO();
-  await salvarMeta({ saldoBase: val, saldoBaseEm: hoje });
-  // Atualiza estado local imediatamente (sem esperar o listener Firebase)
-  S.saldoBase   = val;
-  S.saldoBaseEm = hoje;
+  const baseEm = S.saldoBaseEm || hoje;
+  // Ajusta o saldoBase interno para que saldoAtual() retorne exatamente val.
+  // O delta (salários + entradas - saídas desde a âncora) já está contabilizado
+  // nas transações — a âncora precisa absorver isso para o resultado bater.
+  const delta = saldoAtual() - S.saldoBase; // contribuição das transações
+  const novoBase = val - delta;
+  await salvarMeta({ saldoBase: novoBase, saldoBaseEm: baseEm });
+  S.saldoBase   = novoBase;
+  S.saldoBaseEm = baseEm;
   fecharModalDom();
   say("Saldo atualizado!");
 }
