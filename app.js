@@ -1603,7 +1603,7 @@ function viewPlano(ym){
   plano.filter(p=>p.janela!=null).forEach(p=>{ alocadoExib[p.janela] += Number(p.conta.valor)||0; });
 
   const janelaHtml = janelas.map((j,i) => {
-    const itens = plano.filter(p=>p.janela===i);
+    const itens = plano.filter(p=>p.janela===i && !p.conta.pago);
     const total = itens.reduce((s,p)=>s+(Number(p.conta.valor)||0),0);
     // saldo após = saldo acumulado até esta janela menos tudo já alocado até aqui (inclusive)
     const gastoAcum = alocadoExib.slice(0, i+1).reduce((s,v)=>s+v, 0);
@@ -1627,7 +1627,7 @@ function viewPlano(ym){
     </div>`;
   }).join("");
 
-  const anteriores = plano.filter(p=>p.tipo==="anterior");
+  const anteriores = plano.filter(p=>p.tipo==="anterior" && !p.conta.pago);
   const anteriorHtml = anteriores.length
     ? `<div class="plano-item" style="border-color:var(--warn)">
         <div class="plano-day">
@@ -1650,7 +1650,7 @@ function viewPlano(ym){
   // Contas do mês seguinte que vencem antes do dia 5 (devem ser pagas neste mês)
   const ymProx = addMes(ym, 1);
   const { plano: planoProx, jUltAnt: jProxUlt } = planoPagamento(ymProx);
-  const antecipProx = planoProx.filter(p => p.tipo === "anterior");
+  const antecipProx = planoProx.filter(p => p.tipo === "anterior" && !p.conta.pago);
   const antecipProxHtml = antecipProx.length
     ? `<div class="plano-item" style="border-color:var(--accent);opacity:.85">
         <div class="plano-day">
