@@ -627,6 +627,10 @@ function ouvirDados(){
 
   const h3 = rMemb.on("value", snap => { S.membros = snap.val() || {}; render(); }, () => {});
 
+  // só libera a tela quando meta E despesas chegaram — evita mostrar saldo parcial
+  let metaOk = false, despOk = false;
+  const pronto = () => { if(metaOk && despOk) S.dataReady = true; };
+
   const h1 = rMeta.on("value", snap => {
     const m = snap.val() || {};
     S.livroNome       = m.nome || (S.livroId === LIVRO_LEGADO ? "Casa" : "Meu livro");
@@ -637,7 +641,7 @@ function ouvirDados(){
     S.janelasEntrada  = m.janelasEntrada && m.janelasEntrada.length ? m.janelasEntrada : null;
     S.distConfig      = m.distConfig || null;
     S.categorias      = m.categorias  && m.categorias.length  ? m.categorias  : null;
-    S.dataReady = true;
+    metaOk = true; pronto();
     render();
   }, () => { S.dataReady = true; say("Sem permissão para ler o livro.", true); render(); });
 
@@ -645,7 +649,7 @@ function ouvirDados(){
   const h2 = rDesp.on("value", snap => {
     const obj = snap.val() || {};
     S.despesas = Object.keys(obj).map(k => Object.assign({ id:k }, obj[k]));
-    S.dataReady = true;
+    despOk = true; pronto();
     if(!recMatOk){ recMatOk = true; materializarRecorrentes(); }
     render();
   }, () => { S.dataReady = true; render(); });
