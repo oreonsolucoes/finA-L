@@ -3054,7 +3054,11 @@ async function salvarSaldo(form){
   const fd  = new FormData(form);
   const val = parseFloat(fd.get("saldoBase"));
   if(isNaN(val)){ say("Informe o saldo real.", true); return; }
-  await salvarMeta({ saldoBase: val, saldoBaseEm: hojeISO() });
+  const hoje = hojeISO();
+  await salvarMeta({ saldoBase: val, saldoBaseEm: hoje });
+  // Atualiza estado local imediatamente (sem esperar o listener Firebase)
+  S.saldoBase   = val;
+  S.saldoBaseEm = hoje;
   fecharModalDom();
   say("Saldo atualizado!");
 }
